@@ -1,0 +1,66 @@
+name: sookshicha_dhukkikenda
+description: "A Flutter project with Clean Architecture."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI
+  cupertino_icons: ^1.0.8
+
+  # State Management - Bloc/Cubit
+  flutter_bloc: ^9.1.0
+  bloc: ^9.0.0
+
+  # Dependency Injection
+  get_it: ^8.0.3
+  injectable: ^2.5.0
+
+  # Firebase
+  firebase_core: ^3.12.1
+  firebase_auth: ^5.5.2
+  cloud_firestore: ^5.6.6
+
+  # Local Storage - Hive (without code generation for now)
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # Functional Programming (for Either type)
+  dartz: ^0.10.1
+
+  # Value Equality
+  equatable: ^2.0.7
+
+  # Network
+  dio: ^5.8.0+1
+  connectivity_plus: ^6.1.4
+
+  # Logging
+  logger: ^2.5.0
+
+  # Path Provider (for Hive)
+  path_provider: ^2.1.5
+
+  # Internationalization
+  intl: ^0.20.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+  # Code Generation (injectable only)
+  build_runner: any
+  injectable_generator: any
+  bloc_test: any
+  mocktail: ^1.0.4
+
+flutter:
+  uses-material-design: true
