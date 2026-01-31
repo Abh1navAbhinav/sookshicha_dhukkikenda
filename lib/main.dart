@@ -5,7 +5,10 @@ import 'package:sookshicha_dhukkikenda/core/services/local_storage_service.dart'
 import 'package:sookshicha_dhukkikenda/core/utils/logger.dart';
 import 'package:sookshicha_dhukkikenda/injection.dart';
 import 'package:sookshicha_dhukkikenda/presentation/bloc/app_bloc_observer.dart';
+import 'package:sookshicha_dhukkikenda/presentation/bloc/auth/auth_cubit.dart';
+import 'package:sookshicha_dhukkikenda/presentation/bloc/auth/auth_state.dart';
 import 'package:sookshicha_dhukkikenda/presentation/bloc/dashboard/dashboard_barrel.dart';
+import 'package:sookshicha_dhukkikenda/presentation/pages/auth/login_screen.dart';
 import 'package:sookshicha_dhukkikenda/presentation/pages/dashboard/dashboard_screen.dart';
 import 'package:sookshicha_dhukkikenda/presentation/theme/calm_theme.dart';
 
@@ -51,56 +54,30 @@ class MyApp extends StatelessWidget {
       title: 'Sookshicha Dhukkikenda',
       debugShowCheckedModeBanner: false,
       theme: CalmTheme.lightTheme,
-      home: Builder(
-        builder: (context) {
-          try {
-            final cubit = sl<DashboardCubit>();
-            return BlocProvider(
-              create: (context) => cubit,
-              child: const DashboardScreen(),
-            );
-          } catch (e) {
-            AppLogger.e('Failed to create DashboardCubit', e);
-            return Scaffold(
-              body: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        size: 48,
-                        color: Colors.red,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Unable to start the application',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Reason: ${e.toString()}',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton(
-                        onPressed: () {
-                          // Try one more time (force a rebuild)
-                        },
-                        child: const Text('Try Again'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }
-        },
+      home: BlocProvider(
+        create: (context) => sl<AuthCubit>(),
+        child: BlocBuilder<AuthCubit, AuthState>(
+          buildWhen: (previous, current) =>
+              current is Authenticated ||
+              current is Unauthenticated ||
+              current is AuthInitial,
+          builder: (context, state) {
+            if (state is Authenticated) {
+              return BlocProvider(
+                create: (context) => sl<DashboardCubit>(),
+                child: const DashboardScreen(),
+              );
+            }
+
+            if (state is AuthInitial) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            return const LoginScreen();
+          },
+        ),
       ),
     );
   }

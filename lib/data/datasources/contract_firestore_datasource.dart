@@ -89,9 +89,7 @@ class ContractFirestoreDataSourceImpl implements ContractFirestoreDataSource {
   @override
   Future<List<ContractDto>> getAllContracts() async {
     try {
-      final snapshot = await _contractsRef
-          .orderBy('createdAt', descending: true)
-          .get();
+      final snapshot = await _contractsRef.get();
 
       return snapshot.docs
           .map((doc) => ContractDto.fromFirestore(doc))
@@ -110,7 +108,6 @@ class ContractFirestoreDataSourceImpl implements ContractFirestoreDataSource {
     try {
       final snapshot = await _contractsRef
           .where('status', isEqualTo: status)
-          .orderBy('createdAt', descending: true)
           .get();
 
       return snapshot.docs
@@ -128,10 +125,7 @@ class ContractFirestoreDataSourceImpl implements ContractFirestoreDataSource {
   @override
   Future<List<ContractDto>> getContractsByType(String type) async {
     try {
-      final snapshot = await _contractsRef
-          .where('type', isEqualTo: type)
-          .orderBy('createdAt', descending: true)
-          .get();
+      final snapshot = await _contractsRef.where('type', isEqualTo: type).get();
 
       return snapshot.docs
           .map((doc) => ContractDto.fromFirestore(doc))
@@ -225,26 +219,22 @@ class ContractFirestoreDataSourceImpl implements ContractFirestoreDataSource {
 
   @override
   Stream<List<ContractDto>> watchAllContracts() {
-    return _contractsRef.orderBy('createdAt', descending: true).snapshots().map(
-      (snapshot) {
-        return snapshot.docs
-            .map((doc) => ContractDto.fromFirestore(doc))
-            .toList();
-      },
-    );
+    return _contractsRef.snapshots().map((snapshot) {
+      return snapshot.docs
+          .map((doc) => ContractDto.fromFirestore(doc))
+          .toList();
+    });
   }
 
   @override
   Stream<List<ContractDto>> watchContractsByStatus(String status) {
-    return _contractsRef
-        .where('status', isEqualTo: status)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) {
-          return snapshot.docs
-              .map((doc) => ContractDto.fromFirestore(doc))
-              .toList();
-        });
+    return _contractsRef.where('status', isEqualTo: status).snapshots().map((
+      snapshot,
+    ) {
+      return snapshot.docs
+          .map((doc) => ContractDto.fromFirestore(doc))
+          .toList();
+    });
   }
 
   @override
@@ -283,15 +273,18 @@ class ContractFirestoreDataSourceImpl implements ContractFirestoreDataSource {
       final now = DateTime.now();
       final futureDate = now.add(Duration(days: days));
 
-      final snapshot = await _contractsRef
-          .where('status', isEqualTo: 'active')
-          .where('endDate', isGreaterThanOrEqualTo: Timestamp.fromDate(now))
-          .where('endDate', isLessThanOrEqualTo: Timestamp.fromDate(futureDate))
-          .get();
+      final snapshot = await _contractsRef.get();
 
-      return snapshot.docs
-          .map((doc) => ContractDto.fromFirestore(doc))
-          .toList();
+      final docs = snapshot.docs.where((doc) {
+        final data = doc.data();
+        if (data['status'] != 'active') return false;
+        final endDate = data['endDate'] as Timestamp?;
+        if (endDate == null) return false;
+        final date = endDate.toDate();
+        return date.isAfter(now) && date.isBefore(futureDate);
+      }).toList();
+
+      return docs.map((doc) => ContractDto.fromFirestore(doc)).toList();
     } on FirebaseException catch (e) {
       AppLogger.e('Failed to get contracts ending soon', e);
       throw ServerException(

@@ -29,6 +29,8 @@ import 'data/repositories/monthly_snapshot_repository_impl.dart' as _i999;
 import 'domain/repositories/contract_repository.dart' as _i875;
 import 'domain/repositories/monthly_snapshot_repository.dart' as _i863;
 import 'injection.dart' as _i464;
+import 'presentation/bloc/add_contract/add_contract_cubit.dart' as _i136;
+import 'presentation/bloc/auth/auth_cubit.dart' as _i501;
 import 'presentation/bloc/contract_detail/contract_detail_cubit.dart' as _i604;
 import 'presentation/bloc/contracts/contracts_cubit.dart' as _i151;
 import 'presentation/bloc/dashboard/dashboard_cubit.dart' as _i989;
@@ -78,6 +80,9 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i560.FirebaseAuthService>(),
       ),
     );
+    gh.factory<_i501.AuthCubit>(
+      () => _i501.AuthCubit(gh<_i560.FirebaseAuthService>()),
+    );
     gh.lazySingleton<_i863.MonthlySnapshotRepository>(
       () => _i999.MonthlySnapshotRepositoryImpl(
         gh<_i141.MonthlySnapshotFirestoreDataSource>(),
@@ -91,6 +96,11 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i989.DashboardCubit(
         contractRepository: gh<_i875.ContractRepository>(),
         snapshotRepository: gh<_i863.MonthlySnapshotRepository>(),
+      ),
+    );
+    gh.factory<_i136.AddContractCubit>(
+      () => _i136.AddContractCubit(
+        contractRepository: gh<_i875.ContractRepository>(),
       ),
     );
     gh.factory<_i604.ContractDetailCubit>(

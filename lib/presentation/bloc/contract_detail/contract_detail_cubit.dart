@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../domain/entities/contract/contract_status.dart';
 import '../../../domain/repositories/contract_repository.dart';
+import '../../../domain/usecases/monthly_execution_engine.dart';
 import 'contract_detail_state.dart';
 
 /// Contract Detail Cubit
@@ -30,9 +32,26 @@ class ContractDetailCubit extends Cubit<ContractDetailState> {
 
     final result = await _contractRepository.getContractById(contractId);
 
-    result.fold(
-      (failure) => emit(ContractDetailError(message: failure.message)),
-      (contract) => emit(ContractDetailLoaded(contract: contract)),
+    await result.fold(
+      (failure) async => emit(ContractDetailError(message: failure.message)),
+      (contract) async {
+        // Automatically catch up the contract to the current month
+        final now = DateTime.now();
+        const engine = MonthlyExecutionEngine();
+        final caughtUpContract = engine.catchUpContract(
+          contract,
+          now.month,
+          now.year,
+        );
+
+        if (caughtUpContract != contract) {
+          // Sync with repository if state changed
+          await _contractRepository.updateContract(caughtUpContract);
+          emit(ContractDetailLoaded(contract: caughtUpContract));
+        } else {
+          emit(ContractDetailLoaded(contract: contract));
+        }
+      },
     );
   }
 
@@ -47,17 +66,30 @@ class ContractDetailCubit extends Cubit<ContractDetailState> {
           (result) {
             result.fold(
               (failure) => emit(ContractDetailError(message: failure.message)),
-              (contract) {
+              (contract) async {
+                final now = DateTime.now();
+                const engine = MonthlyExecutionEngine();
+                final caughtUpContract = engine.catchUpContract(
+                  contract,
+                  now.month,
+                  now.year,
+                );
+
+                if (caughtUpContract != contract) {
+                  // If changed, trigger update but don't wait to emit
+                  _contractRepository.updateContract(caughtUpContract);
+                }
+
                 final currentState = state;
                 if (currentState is ContractDetailLoaded) {
                   emit(
                     currentState.copyWith(
-                      contract: contract,
+                      contract: caughtUpContract,
                       isUpdating: false,
                     ),
                   );
                 } else {
-                  emit(ContractDetailLoaded(contract: contract));
+                  emit(ContractDetailLoaded(contract: caughtUpContract));
                 }
               },
             );
@@ -110,6 +142,53 @@ class ContractDetailCubit extends Cubit<ContractDetailState> {
         loadContract(currentState.contract.id);
       },
     );
+  }
+
+  /// Process a manual prepayment for a loan
+  Future<void> makePrepayment(double amount) async {
+    final currentState = state;
+    if (currentState is! ContractDetailLoaded) return;
+
+    final contract = currentState.contract;
+    final metadata = contract.reducingMetadata;
+    if (metadata == null) return;
+
+    emit(currentState.copyWith(isUpdating: true));
+
+    final newBalance = (metadata.remainingBalance - amount).clamp(
+      0.0,
+      double.infinity,
+    );
+    final newPrepayments = metadata.prepaymentsMade + amount;
+
+    final updatedMetadata = metadata.copyWith(
+      remainingBalance: newBalance,
+      prepaymentsMade: newPrepayments,
+    );
+
+    var updatedContract = contract.copyWith(metadata: updatedMetadata);
+
+    // Auto-close if paid off
+    if (newBalance <= 0) {
+      updatedContract = updatedContract.copyWith(status: ContractStatus.closed);
+    }
+
+    final result = await _contractRepository.updateContract(updatedContract);
+
+    result.fold((failure) => emit(currentState.copyWith(isUpdating: false)), (
+      _,
+    ) {
+      if (newBalance <= 0) {
+        emit(
+          ContractDetailActionCompleted(
+            action: ContractAction.closed,
+            contract: updatedContract,
+          ),
+        );
+      } else {
+        loadContract(contract.id);
+      }
+    });
   }
 
   /// Close the contract

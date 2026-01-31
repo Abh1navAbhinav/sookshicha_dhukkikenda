@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../injection.dart';
+import '../../bloc/auth/auth_cubit.dart';
+import '../../bloc/contracts/contracts_barrel.dart';
 import '../../bloc/dashboard/dashboard_cubit.dart';
 import '../../bloc/dashboard/dashboard_state.dart';
 import '../../theme/calm_theme.dart';
 import '../../widgets/amount_display.dart';
 import '../../widgets/calm_components.dart';
+import '../contracts/contracts_list_screen.dart';
 
 /// Dashboard Screen
 ///
@@ -122,16 +126,25 @@ class _DashboardHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(monthDisplay, style: CalmTheme.textTheme.headlineLarge),
-          const SizedBox(height: 4),
-          Text(
-            'Financial Overview',
-            style: CalmTheme.textTheme.bodyLarge?.copyWith(
-              color: CalmTheme.textMuted,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(monthDisplay, style: CalmTheme.textTheme.headlineLarge),
+              const SizedBox(height: 4),
+              Text(
+                'Financial Overview',
+                style: CalmTheme.textTheme.bodyLarge?.copyWith(
+                  color: CalmTheme.textMuted,
+                ),
+              ),
+            ],
+          ),
+          IconButton(
+            onPressed: () => context.read<AuthCubit>().signOut(),
+            icon: Icon(Icons.logout_rounded, color: CalmTheme.textMuted),
           ),
         ],
       ),
@@ -435,14 +448,10 @@ class _ContractsSummary extends StatelessWidget {
           SectionHeader(
             title: 'Contracts',
             actionLabel: 'View All',
-            onAction: () {
-              // Navigate to contracts list
-            },
+            onAction: () => _navigateToContracts(context),
           ),
           CalmCard(
-            onTap: () {
-              // Navigate to contracts list
-            },
+            onTap: () => _navigateToContracts(context),
             child: Row(
               children: [
                 Container(
@@ -481,6 +490,17 @@ class _ContractsSummary extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _navigateToContracts(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => BlocProvider(
+          create: (context) => sl<ContractsCubit>(),
+          child: const ContractsListScreen(),
+        ),
       ),
     );
   }

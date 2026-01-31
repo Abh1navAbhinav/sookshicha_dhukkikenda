@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../../domain/entities/contract/contract.dart';
 import '../../../domain/entities/contract/metadata/contract_metadata.dart';
+import '../../../domain/usecases/monthly_execution_engine.dart';
 
 /// Contract Detail State
 ///
@@ -76,6 +77,17 @@ final class ContractDetailLoaded extends ContractDetailState {
     final metadata = contract.reducingMetadata;
     if (metadata == null) return null;
 
+    final interestPortion =
+        (metadata.remainingBalance * (metadata.interestRatePercent / 12 / 100));
+    final principalPortion = metadata.emiAmount - interestPortion;
+
+    final engine = const MonthlyExecutionEngine();
+    final projectedRemaining = engine.calculateRemainingTenure(
+      balance: metadata.remainingBalance,
+      annualInterestRate: metadata.interestRatePercent,
+      emi: metadata.emiAmount,
+    );
+
     return ReducingDetails(
       principalAmount: metadata.principalAmount,
       remainingBalance: metadata.remainingBalance,
@@ -84,6 +96,10 @@ final class ContractDetailLoaded extends ContractDetailState {
       emiAmount: metadata.emiAmount,
       totalInterest: _calculateTotalInterest(metadata),
       progressPercent: _calculateProgress(metadata),
+      totalPaid: metadata.totalPaid,
+      principalPortion: principalPortion,
+      interestPortion: interestPortion,
+      projectedRemainingMonths: projectedRemaining,
     );
   }
 
@@ -178,6 +194,10 @@ class ReducingDetails {
     required this.emiAmount,
     required this.totalInterest,
     required this.progressPercent,
+    required this.totalPaid,
+    required this.principalPortion,
+    required this.interestPortion,
+    required this.projectedRemainingMonths,
   });
 
   final double principalAmount;
@@ -187,6 +207,10 @@ class ReducingDetails {
   final double emiAmount;
   final double totalInterest;
   final double progressPercent;
+  final double totalPaid;
+  final double principalPortion;
+  final double interestPortion;
+  final int projectedRemainingMonths;
 }
 
 /// Details specific to growing (investment) contracts

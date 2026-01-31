@@ -84,6 +84,9 @@ class _DetailContent extends StatelessWidget {
             SliverToBoxAdapter(child: _AmountCard(amount: state.monthlyAmount)),
             // Details based on type
             SliverToBoxAdapter(child: _TypeDetails(state: state)),
+            // Prepayment option for loans
+            if (state.contract.type == ContractType.reducing && state.isActive)
+              SliverToBoxAdapter(child: _PrepaymentActions(state: state)),
             // Timeline info
             SliverToBoxAdapter(child: _TimelineInfo(state: state)),
             // Actions
@@ -228,12 +231,26 @@ class _TypeDetails extends StatelessWidget {
       return _DetailsCard(
         title: 'Loan Details',
         items: [
-          ('Principal', _formatCurrency(d.principalAmount)),
-          ('Remaining', _formatCurrency(d.remainingBalance)),
+          ('Original Principal', _formatCurrency(d.principalAmount)),
+          ('Total Paid', _formatCurrency(d.totalPaid)),
+          ('Remaining Balance', _formatCurrency(d.remainingBalance)),
           ('Interest Rate', '${d.interestRate}%'),
           ('Progress', '${d.progressPercent.toStringAsFixed(1)}%'),
         ],
         progress: d.progressPercent / 100,
+        extra: Column(
+          children: [
+            const Divider(height: 32),
+            _InfoRow('Monthly Interest', _formatCurrency(d.interestPortion)),
+            _InfoRow('Monthly Principal', _formatCurrency(d.principalPortion)),
+            Text(
+              'This month\'s split',
+              style: CalmTheme.textTheme.bodySmall?.copyWith(
+                color: CalmTheme.textMuted,
+              ),
+            ),
+          ],
+        ),
       );
     }
     // Growing (Investment) details
@@ -270,10 +287,16 @@ class _TypeDetails extends StatelessWidget {
 }
 
 class _DetailsCard extends StatelessWidget {
-  const _DetailsCard({required this.title, required this.items, this.progress});
+  const _DetailsCard({
+    required this.title,
+    required this.items,
+    this.progress,
+    this.extra,
+  });
   final String title;
   final List<(String, String)> items;
   final double? progress;
+  final Widget? extra;
 
   @override
   Widget build(BuildContext context) {
@@ -300,6 +323,7 @@ class _DetailsCard extends StatelessWidget {
               const SizedBox(height: 8),
               CalmProgress(value: progress!),
             ],
+            ?extra,
           ],
         ),
       ),
@@ -314,17 +338,30 @@ class _TimelineInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('MMM yyyy');
+    DateTime endDate = state.endDate ?? state.startDate;
+    int monthsLeft = state.monthsRemaining ?? 0;
+
+    if (state.contract.type == ContractType.reducing) {
+      final rd = state.reducingDetails;
+      if (rd != null) {
+        monthsLeft = rd.projectedRemainingMonths;
+        // Project logical end date from current month + remaining months
+        final now = DateTime.now();
+        endDate = DateTime(now.year, now.month + monthsLeft);
+      }
+    } else if (state.endDate == null) {
+      endDate = state.startDate;
+    }
+
     return Padding(
       padding: const EdgeInsets.all(24),
       child: CalmCard(
         child: Column(
           children: [
             _InfoRow('Started', dateFormat.format(state.startDate)),
-            if (state.endDate != null)
-              _InfoRow('Ends', dateFormat.format(state.endDate!)),
+            _InfoRow('Ends', dateFormat.format(endDate)),
             _InfoRow('Months Elapsed', '${state.monthsElapsed}'),
-            if (state.monthsRemaining != null)
-              _InfoRow('Months Left', '${state.monthsRemaining}'),
+            if (monthsLeft > 0) _InfoRow('Months Left', '$monthsLeft'),
           ],
         ),
       ),
@@ -346,6 +383,140 @@ class _InfoRow extends StatelessWidget {
         children: [
           Text(label, style: CalmTheme.textTheme.bodyMedium),
           Text(value, style: CalmTheme.textTheme.titleSmall),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrepaymentActions extends StatelessWidget {
+  const _PrepaymentActions({required this.state});
+  final ContractDetailLoaded state;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildActionButton(
+            context,
+            icon: Icons.add_card_rounded,
+            label: 'Make Prepayment',
+            onTap: () => _showAmountDialog(context),
+            color: CalmTheme.primary,
+          ),
+          const SizedBox(height: 12),
+          _buildActionButton(
+            context,
+            icon: Icons.check_circle_outline_rounded,
+            label: 'Settle Loan Fully',
+            onTap: () => _showSettleDialog(context),
+            color: CalmTheme.success,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required Color color,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(CalmTheme.radiusMd),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(CalmTheme.radiusMd),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
+            ),
+            const Spacer(),
+            Icon(Icons.chevron_right_rounded, color: color, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAmountDialog(BuildContext context) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Prepayment Amount'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Enter amount',
+            prefixText: '₹ ',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final amount = double.tryParse(controller.text);
+              if (amount != null && amount > 0) {
+                Navigator.pop(ctx);
+                context.read<ContractDetailCubit>().makePrepayment(amount);
+              }
+            },
+            child: const Text('Pay'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSettleDialog(BuildContext context) {
+    final balance = state.reducingDetails?.remainingBalance ?? 0;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Settle Loan?'),
+        content: Text(
+          'This will close the loan by paying the remaining balance of ₹${balance.toInt().toString()}.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: CalmTheme.success,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<ContractDetailCubit>().makePrepayment(balance);
+            },
+            child: const Text('Confirm Settlement'),
+          ),
         ],
       ),
     );

@@ -232,6 +232,133 @@ class MonthlyExecutionEngine {
     );
   }
 
+  /// Catches up a contract's state from its start date to the beginning of the target month.
+  ///
+  /// This applies all payments for months strictly before [targetMonth] and [targetYear].
+  Contract catchUpContract(Contract contract, int targetMonth, int targetYear) {
+    if (contract.status != ContractStatus.active) return contract;
+
+    var currentContract = contract;
+    var currentMonth = contract.startDate.month;
+    var currentYear = contract.startDate.year;
+
+    // We process months until we reach the target month
+    while (currentYear < targetYear ||
+        (currentYear == targetYear && currentMonth < targetMonth)) {
+      // Advance by one month
+      final advanced = _advanceContractStates([
+        currentContract,
+      ], DateTime(currentYear, currentMonth));
+
+      if (advanced.isEmpty) break;
+      currentContract = advanced.first;
+
+      // Increment month
+      currentMonth++;
+      if (currentMonth > 12) {
+        currentMonth = 1;
+        currentYear++;
+      }
+
+      // Safety break if we overshoot
+      if (currentYear > 2100) break;
+    }
+
+    return currentContract;
+  }
+
+  /// Calculates the projected remaining months for a reducing loan.
+  ///
+  /// Takes current balance, interest rate, and EMI to estimate how many
+  /// more months it will take to reach zero.
+  int calculateRemainingTenure({
+    required double balance,
+    required double annualInterestRate,
+    required double emi,
+  }) {
+    if (balance <= _zeroTolerance) return 0;
+    if (emi <= _zeroTolerance) return 999; // Error case
+
+    final monthlyRate = annualInterestRate / 12 / 100;
+
+    // If interest is more than EMI, it will never end
+    if (balance * monthlyRate >= emi) return 999;
+
+    // Formula for remaining months:
+    // n = -log(1 - (B * r / P)) / log(1 + r)
+    // where B = balance, r = monthly rate, P = payment (EMI)
+    try {
+      final numerator = log(1 - (balance * monthlyRate / emi));
+      final denominator = log(1 + monthlyRate);
+      return (-(numerator / denominator)).ceil();
+    } catch (_) {
+      // Fallback to simple simulation if log fails
+      int months = 0;
+      double currentBalance = balance;
+      while (currentBalance > _zeroTolerance && months < 1200) {
+        // 100 year cap
+        final interest = currentBalance * monthlyRate;
+        final principal = emi - interest;
+        currentBalance -= principal;
+        months++;
+      }
+      return months;
+    }
+  }
+
+  /// Calculates the annual interest rate for a loan.
+  ///
+  /// Uses binary search (numerical method) to find the interest rate
+  /// given principal, EMI, and tenure.
+  double calculateAnnualInterestRate({
+    required double principal,
+    required double emi,
+    required int tenureMonths,
+  }) {
+    if (principal <= 0 || emi <= 0 || tenureMonths <= 0) return 0;
+    if (emi * tenureMonths <= principal) return 0; // No interest
+
+    double low = 0;
+    double high = 500; // Increased to support high-interest short-term loans
+    double mid = 0;
+
+    for (int i = 0; i < 40; i++) {
+      // 40 iterations for high precision
+      mid = (low + high) / 2;
+      final calculatedEmi = calculateEmi(
+        principal: principal,
+        annualInterestRate: mid,
+        tenureMonths: tenureMonths,
+      );
+
+      if (calculatedEmi > emi) {
+        high = mid;
+      } else {
+        low = mid;
+      }
+    }
+
+    return _roundTo(mid, 2);
+  }
+
+  /// Calculates EMI for a loan.
+  double calculateEmi({
+    required double principal,
+    required double annualInterestRate,
+    required int tenureMonths,
+  }) {
+    if (annualInterestRate <= 0) return principal / tenureMonths;
+
+    final monthlyRate = annualInterestRate / 12 / 100;
+    final factor = pow(1 + monthlyRate, tenureMonths);
+    return principal * monthlyRate * factor / (factor - 1);
+  }
+
+  double _roundTo(double value, int places) {
+    final mod = pow(10, places);
+    return (value * mod).round() / mod;
+  }
+
   /// Generates a multi-month projection with updated contract states.
   ///
   /// This method simulates future months by progressively updating

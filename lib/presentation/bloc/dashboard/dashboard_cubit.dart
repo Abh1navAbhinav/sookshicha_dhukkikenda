@@ -37,73 +37,81 @@ class DashboardCubit extends Cubit<DashboardState> {
     emit(const DashboardLoading());
 
     try {
-      // Get current month info
       final now = DateTime.now();
       final currentMonth = now.month;
       final currentYear = now.year;
 
-      // Fetch current snapshot or generate if not exists
+      // 1. Fetch active contracts (Always do this to ensure we have latest data)
+      final contractsResult = await _contractRepository.getActiveContracts();
+      final contractsList = contractsResult.fold(
+        (failure) => <Contract>[],
+        (list) => list,
+      );
+
+      // 2. Fetch or Generate current snapshot
       final snapshotResult = await _snapshotRepository.getSnapshotForMonth(
         currentMonth,
         currentYear,
       );
 
-      // Fetch active contracts
-      final contractsResult = await _contractRepository.getActiveContracts();
-
-      // Fetch contracts ending soon
-      final upcomingResult = await _contractRepository.getContractsEndingSoon(
-        30,
+      MonthlySnapshot currentSnapshot = MonthlySnapshot.empty(
+        month: currentMonth,
+        year: currentYear,
+        totalIncome: 0,
       );
 
-      // Handle results
       await snapshotResult.fold(
         (failure) async {
-          // If no snapshot, try to generate one
-          final contracts = await _contractRepository.getActiveContracts();
-          final contractsList = contracts.fold(
-            (_) => <Contract>[],
-            (list) => list,
-          );
-
-          if (contractsList.isEmpty) {
-            // No contracts, emit empty dashboard
-            await _emitEmptyDashboard(currentMonth, currentYear);
-          } else {
+          // No snapshot exists yet
+          if (contractsList.isNotEmpty) {
             // Generate snapshot from contracts
-            await _generateAndEmitDashboard(
-              currentMonth,
-              currentYear,
-              contractsList,
+            const engine = MonthlyExecutionEngine();
+            currentSnapshot = engine.executeMonth(
+              contracts: contractsList,
+              month: currentMonth,
+              year: currentYear,
+              totalIncome: 0,
             );
+            await _snapshotRepository.saveSnapshot(currentSnapshot);
           }
         },
         (snapshot) async {
-          // We have a snapshot, build the state
-          final nextThreeMonths = await _getNextThreeMonths(
-            currentMonth,
-            currentYear,
+          // Snapshot exists, but let's update it with current contracts
+          // to ensure it's reflective of recent changes
+          const engine = MonthlyExecutionEngine();
+          currentSnapshot = engine.executeMonth(
+            contracts: contractsList,
+            month: currentMonth,
+            year: currentYear,
+            totalIncome: snapshot.totalIncome, // Preserving user-set income
           );
 
-          final activeCount = contractsResult.fold(
-            (_) => 0,
-            (list) => list.length,
-          );
-
-          final upcoming = upcomingResult.fold(
-            (_) => <Contract>[],
-            (list) => list,
-          );
-
-          emit(
-            DashboardLoaded(
-              currentSnapshot: snapshot,
-              nextThreeMonths: nextThreeMonths,
-              activeContractsCount: activeCount,
-              upcomingContracts: upcoming,
-            ),
-          );
+          if (currentSnapshot != snapshot) {
+            await _snapshotRepository.saveSnapshot(currentSnapshot);
+          }
         },
+      );
+
+      // 3. Fetch projections for next 3 months
+      final nextThreeMonths = await _getNextThreeMonths(
+        currentMonth,
+        currentYear,
+        contractsList,
+      );
+
+      // 4. Fetch upcoming contracts
+      final upcomingResult = await _contractRepository.getContractsEndingSoon(
+        30,
+      );
+      final upcoming = upcomingResult.fold((_) => <Contract>[], (list) => list);
+
+      emit(
+        DashboardLoaded(
+          currentSnapshot: currentSnapshot,
+          nextThreeMonths: nextThreeMonths,
+          activeContractsCount: contractsList.length,
+          upcomingContracts: upcoming,
+        ),
       );
     } catch (e) {
       emit(DashboardError(message: 'Failed to load dashboard: $e'));
@@ -115,60 +123,14 @@ class DashboardCubit extends Cubit<DashboardState> {
     await loadDashboard();
   }
 
-  /// Generate empty dashboard for new users
-  Future<void> _emitEmptyDashboard(int month, int year) async {
-    final emptySnapshot = MonthlySnapshot.empty(
-      month: month,
-      year: year,
-      totalIncome: 0,
-    );
-
-    emit(
-      DashboardLoaded(
-        currentSnapshot: emptySnapshot,
-        nextThreeMonths: _generateEmptyNextMonths(month, year),
-        activeContractsCount: 0,
-        upcomingContracts: [],
-      ),
-    );
-  }
-
-  /// Generate dashboard from contracts when no snapshot exists
-  Future<void> _generateAndEmitDashboard(
-    int month,
-    int year,
-    List<Contract> contracts,
-  ) async {
-    // Use the execution engine to calculate snapshot
-    const engine = MonthlyExecutionEngine();
-    final snapshot = engine.executeMonth(
-      contracts: contracts,
-      month: month,
-      year: year,
-      totalIncome: 0, // User needs to set this separately
-    );
-
-    // Save the generated snapshot
-    await _snapshotRepository.saveSnapshot(snapshot);
-
-    final nextThreeMonths = await _getNextThreeMonths(month, year);
-
-    emit(
-      DashboardLoaded(
-        currentSnapshot: snapshot,
-        nextThreeMonths: nextThreeMonths,
-        activeContractsCount: contracts.length,
-        upcomingContracts: [],
-      ),
-    );
-  }
-
   /// Get next 3 months snapshots or projections
   Future<List<MonthlySnapshot>> _getNextThreeMonths(
     int currentMonth,
     int currentYear,
+    List<Contract> activeContracts,
   ) async {
     final projections = <MonthlySnapshot>[];
+    const engine = MonthlyExecutionEngine();
 
     for (int i = 1; i <= 3; i++) {
       var month = currentMonth + i;
@@ -180,35 +142,16 @@ class DashboardCubit extends Cubit<DashboardState> {
       }
 
       final result = await _snapshotRepository.getSnapshotForMonth(month, year);
-      result.fold(
-        (_) => projections.add(
-          MonthlySnapshot.empty(month: month, year: year, totalIncome: 0),
-        ),
-        (snapshot) => projections.add(snapshot),
-      );
-    }
-
-    return projections;
-  }
-
-  List<MonthlySnapshot> _generateEmptyNextMonths(
-    int currentMonth,
-    int currentYear,
-  ) {
-    final projections = <MonthlySnapshot>[];
-
-    for (int i = 1; i <= 3; i++) {
-      var month = currentMonth + i;
-      var year = currentYear;
-
-      if (month > 12) {
-        month -= 12;
-        year += 1;
-      }
-
-      projections.add(
-        MonthlySnapshot.empty(month: month, year: year, totalIncome: 0),
-      );
+      result.fold((_) {
+        // No snapshot, generate projection
+        final projection = engine.executeMonth(
+          contracts: activeContracts,
+          month: month,
+          year: year,
+          totalIncome: 0,
+        );
+        projections.add(projection);
+      }, (snapshot) => projections.add(snapshot));
     }
 
     return projections;

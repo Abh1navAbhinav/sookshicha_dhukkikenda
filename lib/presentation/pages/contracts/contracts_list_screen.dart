@@ -3,11 +3,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../domain/entities/contract/contract.dart';
 import '../../../domain/entities/contract/contract_type.dart';
+import '../../../injection.dart';
+import '../../bloc/add_contract/add_contract_barrel.dart';
+import '../../bloc/contract_detail/contract_detail_barrel.dart';
 import '../../bloc/contracts/contracts_cubit.dart';
 import '../../bloc/contracts/contracts_state.dart';
 import '../../theme/calm_theme.dart';
 import '../../widgets/amount_display.dart';
 import '../../widgets/calm_components.dart';
+import '../contract_detail/contract_detail_screen.dart';
+import 'add_contract_screen.dart';
 
 /// Contracts List Screen - Simple, scannable list of all contracts
 class ContractsListScreen extends StatefulWidget {
@@ -38,6 +43,22 @@ class _ContractsListScreenState extends State<ContractsListScreen> {
               ContractsError() => _ErrorView(message: state.message),
             };
           },
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _navigateToAddContract(context),
+        backgroundColor: CalmTheme.primary,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+    );
+  }
+
+  void _navigateToAddContract(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => BlocProvider(
+          create: (context) => sl<AddContractCubit>(),
+          child: const AddContractScreen(),
         ),
       ),
     );
@@ -191,7 +212,7 @@ class _ContractItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return CalmCard(
       margin: const EdgeInsets.only(bottom: 12),
-      onTap: () {},
+      onTap: () => _navigateToDetail(context, contract),
       child: Row(
         children: [
           _TypeIcon(type: contract.type),
@@ -213,6 +234,19 @@ class _ContractItem extends StatelessWidget {
             size: AmountSize.compact,
           ),
         ],
+      ),
+    );
+  }
+
+  void _navigateToDetail(BuildContext context, Contract contract) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => MultiBlocProvider(
+          providers: [
+            BlocProvider(create: (context) => sl<ContractDetailCubit>()),
+          ],
+          child: ContractDetailScreen(contractId: contract.id),
+        ),
       ),
     );
   }
