@@ -5,7 +5,9 @@ import 'package:sookshicha_dhukkikenda/core/services/local_storage_service.dart'
 import 'package:sookshicha_dhukkikenda/core/utils/logger.dart';
 import 'package:sookshicha_dhukkikenda/injection.dart';
 import 'package:sookshicha_dhukkikenda/presentation/bloc/app_bloc_observer.dart';
-import 'package:sookshicha_dhukkikenda/presentation/theme/app_theme.dart';
+import 'package:sookshicha_dhukkikenda/presentation/bloc/dashboard/dashboard_barrel.dart';
+import 'package:sookshicha_dhukkikenda/presentation/pages/dashboard/dashboard_screen.dart';
+import 'package:sookshicha_dhukkikenda/presentation/theme/calm_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,18 +16,23 @@ Future<void> main() async {
   Bloc.observer = const AppBlocObserver();
 
   try {
-    // Initialize Firebase
-    await FirebaseInitializer.initialize();
-
-    // Configure Firestore for offline persistence
-    FirestoreConfig.enableOfflinePersistence();
-
     // Initialize dependency injection
     await configureDependencies();
 
     // Initialize local storage (Hive)
     final localStorage = sl<LocalStorageService>();
     await localStorage.init();
+
+    // Initialize Firebase
+    try {
+      await FirebaseInitializer.initialize();
+      FirestoreConfig.enableOfflinePersistence();
+    } catch (e) {
+      AppLogger.e(
+        'Firebase initialization failed (likely missing configuration)',
+        e,
+      );
+    }
 
     AppLogger.i('App initialized successfully');
   } catch (e, stackTrace) {
@@ -43,10 +50,58 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Sookshicha Dhukkikenda',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
-      home: const Scaffold(body: Center(child: Text('App is ready!'))),
+      theme: CalmTheme.lightTheme,
+      home: Builder(
+        builder: (context) {
+          try {
+            final cubit = sl<DashboardCubit>();
+            return BlocProvider(
+              create: (context) => cubit,
+              child: const DashboardScreen(),
+            );
+          } catch (e) {
+            AppLogger.e('Failed to create DashboardCubit', e);
+            return Scaffold(
+              body: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: Colors.red,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Unable to start the application',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Reason: ${e.toString()}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        onPressed: () {
+                          // Try one more time (force a rebuild)
+                        },
+                        child: const Text('Try Again'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+        },
+      ),
     );
   }
 }

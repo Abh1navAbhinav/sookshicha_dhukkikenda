@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:injectable/injectable.dart';
 import 'package:sookshicha_dhukkikenda/core/utils/logger.dart';
+import 'package:sookshicha_dhukkikenda/firebase_options.dart';
 
 /// Service class for Firebase initialization and configuration
 class FirebaseInitializer {
@@ -20,8 +21,7 @@ class FirebaseInitializer {
 
     try {
       await Firebase.initializeApp(
-        // TODO: Add your firebase_options.dart from FlutterFire CLI
-        // options: DefaultFirebaseOptions.currentPlatform,
+        options: DefaultFirebaseOptions.currentPlatform,
       );
       _initialized = true;
       AppLogger.i('Firebase initialized successfully');
@@ -39,10 +39,29 @@ class FirebaseInitializer {
 @module
 abstract class FirebaseModule {
   @lazySingleton
-  FirebaseAuth get firebaseAuth => FirebaseAuth.instance;
+  FirebaseAuth get firebaseAuth {
+    if (!FirebaseInitializer.isInitialized) {
+      throw FirebaseException(
+        plugin: 'firebase_core',
+        code: 'not-initialized',
+        message: 'Firebase must be initialized before accessing FirebaseAuth',
+      );
+    }
+    return FirebaseAuth.instance;
+  }
 
   @lazySingleton
-  FirebaseFirestore get firebaseFirestore => FirebaseFirestore.instance;
+  FirebaseFirestore get firebaseFirestore {
+    if (!FirebaseInitializer.isInitialized) {
+      throw FirebaseException(
+        plugin: 'firebase_core',
+        code: 'not-initialized',
+        message:
+            'Firebase must be initialized before accessing FirebaseFirestore',
+      );
+    }
+    return FirebaseFirestore.instance;
+  }
 }
 
 /// Firestore settings configuration

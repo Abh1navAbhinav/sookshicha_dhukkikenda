@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "600896559502",
+    "project_id": "sookshicha-dhukkikenda",
+    "storage_bucket": "sookshicha-dhukkikenda.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:600896559502:android:1391110bf8295c27b0ecdf",
+        "android_client_info": {
+          "package_name": "com.example.sookshicha_dhukkikenda"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-U1xDDYzRptVzmDcgIJCIX9D5TfJefoc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

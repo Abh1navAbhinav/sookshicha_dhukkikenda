@@ -29,6 +29,9 @@ import 'data/repositories/monthly_snapshot_repository_impl.dart' as _i999;
 import 'domain/repositories/contract_repository.dart' as _i875;
 import 'domain/repositories/monthly_snapshot_repository.dart' as _i863;
 import 'injection.dart' as _i464;
+import 'presentation/bloc/contract_detail/contract_detail_cubit.dart' as _i604;
+import 'presentation/bloc/contracts/contracts_cubit.dart' as _i151;
+import 'presentation/bloc/dashboard/dashboard_cubit.dart' as _i989;
 
 extension GetItInjectableX on _i174.GetIt {
   // initializes the registration of main-scope dependencies inside of GetIt
@@ -83,6 +86,22 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i875.ContractRepository>(
       () =>
           _i364.ContractRepositoryImpl(gh<_i445.ContractFirestoreDataSource>()),
+    );
+    gh.factory<_i989.DashboardCubit>(
+      () => _i989.DashboardCubit(
+        contractRepository: gh<_i875.ContractRepository>(),
+        snapshotRepository: gh<_i863.MonthlySnapshotRepository>(),
+      ),
+    );
+    gh.factory<_i604.ContractDetailCubit>(
+      () => _i604.ContractDetailCubit(
+        contractRepository: gh<_i875.ContractRepository>(),
+      ),
+    );
+    gh.factory<_i151.ContractsCubit>(
+      () => _i151.ContractsCubit(
+        contractRepository: gh<_i875.ContractRepository>(),
+      ),
     );
     return this;
   }
