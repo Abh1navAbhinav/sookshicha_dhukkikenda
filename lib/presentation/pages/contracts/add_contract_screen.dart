@@ -146,23 +146,26 @@ class _AddContractScreenState extends State<AddContractScreen> {
                     if (date != null) setState(() => _startDate = date);
                   },
                 ),
-                const SizedBox(height: 16),
-                _buildDatePicker(
-                  label: 'End Date (Optional)',
-                  value: _endDate,
-                  isOptional: true,
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate:
-                          _endDate ?? _startDate.add(const Duration(days: 365)),
-                      firstDate: _startDate,
-                      lastDate: DateTime(2100),
-                    );
-                    if (date != null) setState(() => _endDate = date);
-                  },
-                  onClear: () => setState(() => _endDate = null),
-                ),
+                if (_selectedType == ContractType.growing) ...[
+                  const SizedBox(height: 16),
+                  _buildDatePicker(
+                    label: 'End Date (Optional)',
+                    value: _endDate,
+                    isOptional: true,
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate:
+                            _endDate ??
+                            _startDate.add(const Duration(days: 365)),
+                        firstDate: _startDate,
+                        lastDate: DateTime(2100),
+                      );
+                      if (date != null) setState(() => _endDate = date);
+                    },
+                    onClear: () => setState(() => _endDate = null),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 _buildTypeSpecificFields(),
                 const SizedBox(height: 48),
@@ -240,7 +243,12 @@ class _AddContractScreenState extends State<AddContractScreen> {
             final isSelected = _selectedType == type;
             return Expanded(
               child: GestureDetector(
-                onTap: () => setState(() => _selectedType = type),
+                onTap: () => setState(() {
+                  _selectedType = type;
+                  if (_selectedType != ContractType.growing) {
+                    _endDate = null;
+                  }
+                }),
                 child: Container(
                   margin: EdgeInsets.only(
                     right: type != ContractType.values.last ? 8 : 0,

@@ -90,8 +90,9 @@ class _DetailContent extends StatelessWidget {
             // Prepayment option for loans
             if (state.contract.type == ContractType.reducing && state.isActive)
               SliverToBoxAdapter(child: _PrepaymentActions(state: state)),
-            // Timeline info
-            SliverToBoxAdapter(child: _TimelineInfo(state: state)),
+            // Timeline info (hidden for growing contracts as it's merged into the details card)
+            if (state.contract.type != ContractType.growing)
+              SliverToBoxAdapter(child: _TimelineInfo(state: state)),
             // Actions
             SliverToBoxAdapter(child: _Actions(state: state)),
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
@@ -277,13 +278,11 @@ class _TypeDetails extends StatelessWidget {
     // Growing (Investment) details
     if (state.growingDetails != null) {
       final d = state.growingDetails!;
+      final dateFormat = DateFormat('MMM yyyy');
       return _DetailsCard(
         title: 'Investment Details',
         children: [
           _DetailRow('Total Invested', _formatCurrency(d.invested)),
-          _DetailRow('Current Value', _formatCurrency(d.currentValue)),
-          _DetailRow('Absolute Returns', _formatCurrency(d.returns)),
-          _DetailRow('Returns %', '${d.returnsPercent.toStringAsFixed(1)}%'),
           if (d.projectedTotalPaid != null)
             _DetailRow(
               'Total Commitment',
@@ -294,6 +293,13 @@ class _TypeDetails extends StatelessWidget {
               'Est. Value at End',
               _formatCurrency(d.projectedFutureValue!),
             ),
+          const Divider(height: 32),
+          _DetailRow('Started', dateFormat.format(state.startDate)),
+          if (state.endDate != null)
+            _DetailRow('Ends', dateFormat.format(state.endDate!)),
+          _DetailRow('Months Elapsed', '${state.monthsElapsed}'),
+          if ((state.monthsRemaining ?? 0) > 0)
+            _DetailRow('Months Remaining', '${state.monthsRemaining}'),
         ],
       );
     }
@@ -621,7 +627,7 @@ class _Actions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

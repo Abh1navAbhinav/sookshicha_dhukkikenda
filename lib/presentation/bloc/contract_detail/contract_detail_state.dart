@@ -88,9 +88,12 @@ final class ContractDetailLoaded extends ContractDetailState {
       emi: metadata.emiAmount,
     );
 
+    final totalPaid =
+        (contract.elapsedMonths * metadata.emiAmount) +
+        metadata.prepaymentsMade;
     final totalPrincipalPaid =
         metadata.principalAmount - metadata.remainingBalance;
-    final totalInterestPaid = metadata.totalPaid - totalPrincipalPaid;
+    final totalInterestPaid = totalPaid - totalPrincipalPaid;
 
     return ReducingDetails(
       principalAmount: metadata.principalAmount,
@@ -100,7 +103,7 @@ final class ContractDetailLoaded extends ContractDetailState {
       emiAmount: metadata.emiAmount,
       totalInterest: _calculateTotalInterest(metadata),
       progressPercent: _calculateProgress(metadata),
-      totalPaid: metadata.totalPaid,
+      totalPaid: totalPaid,
       totalPrincipalPaid: totalPrincipalPaid,
       totalInterestPaid: totalInterestPaid,
       principalPortion: principalPortion,
@@ -114,12 +117,14 @@ final class ContractDetailLoaded extends ContractDetailState {
     final metadata = contract.growingMetadata;
     if (metadata == null) return null;
 
+    final totalInvested = contract.elapsedMonths * contract.monthlyAmount;
+
     return GrowingDetails(
-      invested: metadata.totalInvested,
+      invested: totalInvested,
       currentValue: metadata.currentValue,
       expectedRate: metadata.expectedReturnPercent ?? 0,
       targetAmount: metadata.targetAmount,
-      returns: metadata.currentValue - metadata.totalInvested,
+      returns: metadata.currentValue - totalInvested,
       startDate: contract.startDate,
       endDate: contract.endDate,
       monthlyContribution: contract.monthlyAmount,

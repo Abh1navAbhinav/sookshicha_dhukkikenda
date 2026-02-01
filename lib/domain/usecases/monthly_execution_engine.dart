@@ -242,30 +242,51 @@ class MonthlyExecutionEngine {
   Contract catchUpContract(Contract contract, int targetMonth, int targetYear) {
     if (contract.status != ContractStatus.active) return contract;
 
-    var currentContract = contract;
-    var currentMonth = contract.startDate.month;
-    var currentYear = contract.startDate.year;
+    // Calculate how many months should have been processed by the target month
+    final targetDate = DateTime(targetYear, targetMonth, 1);
+    final startDate = DateTime(
+      contract.startDate.year,
+      contract.startDate.month,
+      1,
+    );
 
-    // We process months until we reach the target month
-    while (currentYear < targetYear ||
-        (currentYear == targetYear && currentMonth < targetMonth)) {
-      // Advance by one month
-      final advanced = _advanceContractStates([
-        currentContract,
-      ], DateTime(currentYear, currentMonth));
+    // If target date is before start date, nothing to catch up
+    if (targetDate.isBefore(startDate)) return contract;
+
+    final totalMonthsExpected =
+        (targetDate.year - startDate.year) * 12 +
+        (targetDate.month - startDate.month);
+
+    // See how many months have already been applied
+    int monthsAlreadyApplied = 0;
+    if (contract.type == ContractType.reducing) {
+      monthsAlreadyApplied = contract.reducingMetadata?.paidInstallments ?? 0;
+    } else if (contract.type == ContractType.growing) {
+      monthsAlreadyApplied = contract.growingMetadata?.paidMonths ?? 0;
+    }
+
+    // Only apply the difference
+    int monthsToApply = totalMonthsExpected - monthsAlreadyApplied;
+    if (monthsToApply <= 0) return contract;
+
+    var currentContract = contract;
+    // We start processing from the month AFTER the last applied month
+    var processDate = DateTime(
+      startDate.year,
+      startDate.month + monthsAlreadyApplied,
+    );
+
+    for (int i = 0; i < monthsToApply; i++) {
+      final advanced = _advanceContractStates([currentContract], processDate);
 
       if (advanced.isEmpty) break;
       currentContract = advanced.first;
 
-      // Increment month
-      currentMonth++;
-      if (currentMonth > 12) {
-        currentMonth = 1;
-        currentYear++;
-      }
+      // Move to next month
+      processDate = DateTime(processDate.year, processDate.month + 1);
 
-      // Safety break if we overshoot
-      if (currentYear > 2100) break;
+      // Safety break
+      if (processDate.year > 2100) break;
     }
 
     return currentContract;
@@ -632,9 +653,13 @@ class MonthlyExecutionEngine {
   Contract _advanceGrowingContract(Contract contract) {
     final metadata = contract.growingMetadata!;
     final newInvested = _round(metadata.totalInvested + contract.monthlyAmount);
+    final newPaidMonths = metadata.paidMonths + 1;
 
     return contract.copyWith(
-      metadata: metadata.copyWith(totalInvested: newInvested),
+      metadata: metadata.copyWith(
+        totalInvested: newInvested,
+        paidMonths: newPaidMonths,
+      ),
     );
   }
 

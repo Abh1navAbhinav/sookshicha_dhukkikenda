@@ -185,6 +185,7 @@ final class GrowingContractMetadata extends ContractMetadata {
     this.folioNumber,
     this.sipDate,
     this.assetAllocation,
+    this.paidMonths = 0,
   });
 
   /// Current market value of the investment
@@ -217,6 +218,9 @@ final class GrowingContractMetadata extends ContractMetadata {
   /// Asset allocation breakdown (e.g., {"equity": 0.6, "debt": 0.4})
   final Map<String, double>? assetAllocation;
 
+  /// Number of months already invested
+  final int paidMonths;
+
   @override
   String get metadataType => 'growing';
 
@@ -232,7 +236,6 @@ final class GrowingContractMetadata extends ContractMetadata {
       ? currentValue / targetAmount!
       : null;
 
-  /// Creates a copy with updated fields
   GrowingContractMetadata copyWith({
     double? currentValue,
     double? totalInvested,
@@ -244,6 +247,7 @@ final class GrowingContractMetadata extends ContractMetadata {
     String? folioNumber,
     int? sipDate,
     Map<String, double>? assetAllocation,
+    int? paidMonths,
   }) {
     return GrowingContractMetadata(
       currentValue: currentValue ?? this.currentValue,
@@ -257,6 +261,7 @@ final class GrowingContractMetadata extends ContractMetadata {
       folioNumber: folioNumber ?? this.folioNumber,
       sipDate: sipDate ?? this.sipDate,
       assetAllocation: assetAllocation ?? this.assetAllocation,
+      paidMonths: paidMonths ?? this.paidMonths,
     );
   }
 
@@ -274,6 +279,7 @@ final class GrowingContractMetadata extends ContractMetadata {
       'folioNumber': folioNumber,
       'sipDate': sipDate,
       'assetAllocation': assetAllocation,
+      'paidMonths': paidMonths,
     };
   }
 
@@ -294,6 +300,7 @@ final class GrowingContractMetadata extends ContractMetadata {
       assetAllocation: (json['assetAllocation'] as Map<String, dynamic>?)?.map(
         (k, v) => MapEntry(k, (v as num).toDouble()),
       ),
+      paidMonths: json['paidMonths'] as int? ?? 0,
     );
   }
 
@@ -309,6 +316,7 @@ final class GrowingContractMetadata extends ContractMetadata {
     folioNumber,
     sipDate,
     assetAllocation,
+    paidMonths,
   ];
 }
 
