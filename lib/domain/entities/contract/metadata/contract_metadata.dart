@@ -336,6 +336,7 @@ final class FixedContractMetadata extends ContractMetadata {
     this.beneficiaries,
     this.paymentMethod,
     this.reminderDays,
+    this.isLiability = true,
   });
 
   /// Billing cycle (monthly, quarterly, yearly)
@@ -368,6 +369,9 @@ final class FixedContractMetadata extends ContractMetadata {
   /// Days before renewal to remind the user
   final int? reminderDays;
 
+  /// Whether this is a liability (true) or an asset (false)
+  final bool isLiability;
+
   @override
   String get metadataType => 'fixed';
 
@@ -391,6 +395,7 @@ final class FixedContractMetadata extends ContractMetadata {
     List<String>? beneficiaries,
     String? paymentMethod,
     int? reminderDays,
+    bool? isLiability,
   }) {
     return FixedContractMetadata(
       billingCycle: billingCycle ?? this.billingCycle,
@@ -403,6 +408,7 @@ final class FixedContractMetadata extends ContractMetadata {
       beneficiaries: beneficiaries ?? this.beneficiaries,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       reminderDays: reminderDays ?? this.reminderDays,
+      isLiability: isLiability ?? this.isLiability,
     );
   }
 
@@ -420,6 +426,7 @@ final class FixedContractMetadata extends ContractMetadata {
       'beneficiaries': beneficiaries,
       'paymentMethod': paymentMethod,
       'reminderDays': reminderDays,
+      'isLiability': isLiability,
     };
   }
 
@@ -439,6 +446,7 @@ final class FixedContractMetadata extends ContractMetadata {
           .toList(),
       paymentMethod: json['paymentMethod'] as String?,
       reminderDays: json['reminderDays'] as int?,
+      isLiability: json['isLiability'] as bool? ?? true,
     );
   }
 
@@ -454,6 +462,7 @@ final class FixedContractMetadata extends ContractMetadata {
     beneficiaries,
     paymentMethod,
     reminderDays,
+    isLiability,
   ];
 }
 

@@ -83,8 +83,8 @@ class _DetailContent extends StatelessWidget {
             SliverToBoxAdapter(child: _Header(name: state.name)),
             // Status & Type
             SliverToBoxAdapter(child: _StatusRow(state: state)),
-            // Monthly Amount Card
-            SliverToBoxAdapter(child: _AmountCard(amount: state.monthlyAmount)),
+            // Amount Card
+            SliverToBoxAdapter(child: _AmountCard(state: state)),
             // Details based on type
             SliverToBoxAdapter(child: _TypeDetails(state: state)),
             // Prepayment option for loans
@@ -145,7 +145,7 @@ class _StatusRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: Row(
         children: [
-          _TypeBadge(type: state.contract.type),
+          _TypeBadge(state: state),
           const SizedBox(width: 8),
           if (!state.isActive) _StatusBadge(status: state.statusDisplay),
         ],
@@ -155,15 +155,23 @@ class _StatusRow extends StatelessWidget {
 }
 
 class _TypeBadge extends StatelessWidget {
-  const _TypeBadge({required this.type});
-  final ContractType type;
+  const _TypeBadge({required this.state});
+  final ContractDetailLoaded state;
 
   @override
   Widget build(BuildContext context) {
+    final type = state.contract.type;
     final (label, color) = switch (type) {
       ContractType.reducing => ('Loan/EMI', CalmTheme.danger),
       ContractType.growing => ('Investment', CalmTheme.success),
-      ContractType.fixed => ('Subscription', CalmTheme.primary),
+      ContractType.fixed => (
+        state.contract.fixedMetadata?.isLiability ?? true
+            ? 'Fixed Liability'
+            : 'Fixed Asset',
+        state.contract.fixedMetadata?.isLiability ?? true
+            ? CalmTheme.danger
+            : CalmTheme.success,
+      ),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -197,11 +205,12 @@ class _StatusBadge extends StatelessWidget {
 }
 
 class _AmountCard extends StatelessWidget {
-  const _AmountCard({required this.amount});
-  final double amount;
+  const _AmountCard({required this.state});
+  final ContractDetailLoaded state;
 
   @override
   Widget build(BuildContext context) {
+    final isFixed = state.contract.type == ContractType.fixed;
     return Padding(
       padding: const EdgeInsets.all(24),
       child: CalmCard(
@@ -209,13 +218,48 @@ class _AmountCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Monthly Amount', style: CalmTheme.textTheme.labelLarge),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  isFixed ? 'Amount' : 'Monthly Amount',
+                  style: CalmTheme.textTheme.labelLarge,
+                ),
+                if (isFixed)
+                  Text(
+                    DateFormat('dd MMM yyyy').format(state.startDate),
+                    style: CalmTheme.textTheme.bodySmall?.copyWith(
+                      color: CalmTheme.textSecondary,
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(height: 8),
             AmountDisplay(
-              amount: amount,
+              amount: state.monthlyAmount,
               size: AmountSize.large,
               colorBased: false,
             ),
+            if (isFixed) ...[
+              const SizedBox(height: 16),
+              const Divider(height: 1, thickness: 0.5),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Time Elapsed',
+                    style: CalmTheme.textTheme.bodySmall?.copyWith(
+                      color: CalmTheme.textMuted,
+                    ),
+                  ),
+                  Text(
+                    '${state.monthsElapsed} ${state.monthsElapsed == 1 ? 'month' : 'months'}',
+                    style: CalmTheme.textTheme.labelMedium,
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -333,25 +377,13 @@ class _TypeDetails extends StatelessWidget {
         ],
       );
     }
-    // Fixed (Subscription) details
-    if (state.fixedDetails != null) {
-      final d = state.fixedDetails!;
-      return _DetailsCard(
-        title: 'Subscription Details',
-        children: [
-          _DetailRow('Category', d.category),
-          _DetailRow('Billing', d.billingCycle),
-          _DetailRow('Auto Renew', d.autoRenew ? 'Yes' : 'No'),
-          _DetailRow('Total Paid', _formatCurrency(d.totalPaid)),
-        ],
-      );
-    }
+    // Fixed (Subscription) details are now merged into the main info card below
     return const SizedBox.shrink();
   }
+}
 
-  String _formatCurrency(double value) {
-    return NumberFormat.currency(symbol: '₹', decimalDigits: 0).format(value);
-  }
+String _formatCurrency(double value) {
+  return NumberFormat.currency(symbol: '₹', decimalDigits: 0).format(value);
 }
 
 class _DetailsCard extends StatelessWidget {
@@ -481,6 +513,9 @@ class _TimelineInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (state.contract.type == ContractType.fixed) {
+      return const SizedBox.shrink();
+    }
     final dateFormat = DateFormat('MMM yyyy');
     DateTime endDate = state.endDate ?? state.startDate;
     int monthsLeft = state.monthsRemaining ?? 0;

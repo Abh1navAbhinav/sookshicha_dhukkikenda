@@ -146,6 +146,7 @@ final class ContractDetailLoaded extends ContractDetailState {
       autoRenew: metadata.autoRenew,
       renewalDate: metadata.renewalDate,
       totalPaid: monthlyAmount * monthsElapsed,
+      isLiability: metadata.isLiability,
     );
   }
 
@@ -299,6 +300,7 @@ class FixedDetails {
     required this.billingCycle,
     required this.autoRenew,
     required this.totalPaid,
+    required this.isLiability,
     this.renewalDate,
   });
 
@@ -307,4 +309,5 @@ class FixedDetails {
   final bool autoRenew;
   final DateTime? renewalDate;
   final double totalPaid;
+  final bool isLiability;
 }

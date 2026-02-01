@@ -25,6 +25,7 @@ class _AddContractScreenState extends State<AddContractScreen> {
   ContractType _selectedType = ContractType.fixed;
   DateTime _startDate = DateTime.now();
   DateTime? _endDate;
+  bool _isLiability = true;
 
   // Metadata specific fields
   final _lenderController = TextEditingController();
@@ -55,6 +56,11 @@ class _AddContractScreenState extends State<AddContractScreen> {
         _principalController.text = meta.principalAmount.toString();
         _tenureController.text = meta.tenureMonths.toString();
         _lenderController.text = meta.lenderName ?? '';
+      }
+
+      if (c.type == ContractType.fixed && c.metadata is FixedContractMetadata) {
+        final meta = c.metadata as FixedContractMetadata;
+        _isLiability = meta.isLiability;
       }
     }
 
@@ -153,7 +159,9 @@ class _AddContractScreenState extends State<AddContractScreen> {
                 _buildTextField(
                   controller: _amountController,
                   focusNode: _amountFocus,
-                  label: 'Monthly Amount',
+                  label: _selectedType == ContractType.fixed
+                      ? 'Amount'
+                      : 'Monthly Amount',
                   hint: '0.00',
                   keyboardType: TextInputType.number,
                   prefixText: '₹ ',
@@ -164,7 +172,9 @@ class _AddContractScreenState extends State<AddContractScreen> {
                 const SizedBox(height: 24),
                 _buildSectionTitle('Dates'),
                 _buildDatePicker(
-                  label: 'Start Date',
+                  label: _selectedType == ContractType.fixed
+                      ? 'Date'
+                      : 'Start Date',
                   value: _startDate,
                   onTap: () async {
                     final date = await showDatePicker(
@@ -431,6 +441,89 @@ class _AddContractScreenState extends State<AddContractScreen> {
         ],
       );
     }
+
+    if (_selectedType == ContractType.fixed) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle('Financial Nature'),
+          Text(
+            'Is this an Asset or a Liability?',
+            style: CalmTheme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _isLiability = false),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: !_isLiability
+                          ? CalmTheme.primary
+                          : CalmTheme.surface,
+                      borderRadius: BorderRadius.circular(CalmTheme.radiusMd),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Asset',
+                        style: TextStyle(
+                          color: !_isLiability
+                              ? Colors.white
+                              : CalmTheme.textSecondary,
+                          fontWeight: !_isLiability
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _isLiability = true),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _isLiability
+                          ? CalmTheme.primary
+                          : CalmTheme.surface,
+                      borderRadius: BorderRadius.circular(CalmTheme.radiusMd),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Liability',
+                        style: TextStyle(
+                          color: _isLiability
+                              ? Colors.white
+                              : CalmTheme.textSecondary,
+                          fontWeight: _isLiability
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _isLiability
+                ? 'Example: Subscriptions, Insurance, Rent, or Money you owe.'
+                : 'Example: Fixed Deposits, Recurring Deposits, or Money owed to you.',
+            style: CalmTheme.textTheme.bodySmall?.copyWith(
+              color: CalmTheme.textMuted,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      );
+    }
     return const SizedBox.shrink();
   }
 
@@ -506,8 +599,9 @@ class _AddContractScreenState extends State<AddContractScreen> {
     } else if (_selectedType == ContractType.growing) {
       metadata = GrowingContractMetadata(currentValue: 0, totalInvested: 0);
     } else {
-      metadata = const FixedContractMetadata(
+      metadata = FixedContractMetadata(
         billingCycle: BillingCycle.monthly,
+        isLiability: _isLiability,
       );
     }
 
