@@ -375,6 +375,7 @@ void main() {
         growingOutflow: 20000,
         fixedOutflow: 10000,
         totalWealth: 50000,
+        totalDebt: 200000,
       );
 
       expect(snapshot.freeBalance, 40000);
@@ -393,6 +394,7 @@ void main() {
         growingOutflow: 0,
         fixedOutflow: 0,
         totalWealth: 0,
+        totalDebt: 0,
       );
 
       expect(snapshot.monthName, 'March');
@@ -411,6 +413,7 @@ void main() {
         fixedOutflow: 10000,
         totalWealth: 100000,
         generatedAt: DateTime(2026, 6, 1),
+        totalDebt: 300000,
       );
 
       final json = original.toJson();
