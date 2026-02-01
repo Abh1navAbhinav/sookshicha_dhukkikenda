@@ -26,7 +26,7 @@ class _ContractsListScreenState extends State<ContractsListScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<ContractsCubit>().loadContracts();
+    context.read<ContractsCubit>().watchContracts();
   }
 
   @override
@@ -71,7 +71,10 @@ class _ContractsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final contracts = state.filteredContracts;
+    final allFiltered = state.filteredContracts;
+    final openContracts = allFiltered.where((c) => !c.isClosed).toList();
+    final closedContracts = allFiltered.where((c) => c.isClosed).toList();
+
     return RefreshIndicator(
       onRefresh: () => context.read<ContractsCubit>().refresh(),
       child: CustomScrollView(
@@ -83,26 +86,54 @@ class _ContractsContent extends StatelessWidget {
           // Summary
           SliverToBoxAdapter(
             child: _Summary(
-              total: contracts.length,
+              total: openContracts.length,
               outflow: state.totalMonthlyOutflow,
             ),
           ),
-          // List
-          if (contracts.isEmpty)
+          // Open Contracts List
+          if (openContracts.isEmpty && closedContracts.isEmpty)
             const SliverFillRemaining(
               child: EmptyState(message: 'No contracts'),
             )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, i) => _ContractItem(contract: contracts[i]),
-                  childCount: contracts.length,
+          else ...[
+            if (openContracts.isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, i) => _ContractItem(contract: openContracts[i]),
+                    childCount: openContracts.length,
+                  ),
                 ),
               ),
-            ),
-          const SliverToBoxAdapter(child: SizedBox(height: 48)),
+
+            // Closed Contracts Section
+            if (closedContracts.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
+                  child: SectionHeader(
+                    title: 'Closed',
+                    subtitle:
+                        '${closedContracts.length} ${closedContracts.length == 1 ? 'contract' : 'contracts'}',
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, i) => _ContractItem(
+                      contract: closedContracts[i],
+                      isClosed: true,
+                    ),
+                    childCount: closedContracts.length,
+                  ),
+                ),
+              ),
+            ],
+          ],
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
     );
@@ -191,7 +222,7 @@ class _Summary extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('$total Contracts', style: CalmTheme.textTheme.titleMedium),
+            Text('$total Active', style: CalmTheme.textTheme.titleMedium),
             AmountDisplay(
               amount: outflow,
               size: AmountSize.medium,
@@ -205,35 +236,40 @@ class _Summary extends StatelessWidget {
 }
 
 class _ContractItem extends StatelessWidget {
-  const _ContractItem({required this.contract});
+  const _ContractItem({required this.contract, this.isClosed = false});
   final Contract contract;
+  final bool isClosed;
 
   @override
   Widget build(BuildContext context) {
-    return CalmCard(
-      margin: const EdgeInsets.only(bottom: 12),
-      onTap: () => _navigateToDetail(context, contract),
-      child: Row(
-        children: [
-          _TypeIcon(type: contract.type),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(contract.name, style: CalmTheme.textTheme.titleMedium),
-                Text(
-                  contract.type.displayName,
-                  style: CalmTheme.textTheme.bodySmall,
-                ),
-              ],
+    return Opacity(
+      opacity: isClosed ? 0.6 : 1.0,
+      child: CalmCard(
+        margin: const EdgeInsets.only(bottom: 12),
+        onTap: () => _navigateToDetail(context, contract),
+        child: Row(
+          children: [
+            _TypeIcon(type: contract.type, isClosed: isClosed),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(contract.name, style: CalmTheme.textTheme.titleMedium),
+                  Text(
+                    contract.type.displayName,
+                    style: CalmTheme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
             ),
-          ),
-          AmountDisplay(
-            amount: contract.monthlyAmount,
-            size: AmountSize.compact,
-          ),
-        ],
+            AmountDisplay(
+              amount: contract.monthlyAmount,
+              size: AmountSize.compact,
+              colorBased: !isClosed,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -253,16 +289,22 @@ class _ContractItem extends StatelessWidget {
 }
 
 class _TypeIcon extends StatelessWidget {
-  const _TypeIcon({required this.type});
+  const _TypeIcon({required this.type, this.isClosed = false});
   final ContractType type;
+  final bool isClosed;
 
   @override
   Widget build(BuildContext context) {
-    final (icon, color) = switch (type) {
+    var (icon, color) = switch (type) {
       ContractType.reducing => (Icons.trending_down, CalmTheme.danger),
       ContractType.growing => (Icons.trending_up, CalmTheme.success),
       ContractType.fixed => (Icons.horizontal_rule, CalmTheme.primary),
     };
+
+    if (isClosed) {
+      color = CalmTheme.textMuted;
+    }
+
     return Container(
       width: 44,
       height: 44,

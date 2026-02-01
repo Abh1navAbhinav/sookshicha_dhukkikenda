@@ -41,6 +41,7 @@ class MonthlySnapshotDto {
     required this.reducingOutflow,
     required this.growingOutflow,
     required this.fixedOutflow,
+    required this.totalWealth,
     this.contractBreakdown,
     this.generatedAt,
   });
@@ -53,6 +54,7 @@ class MonthlySnapshotDto {
   final double reducingOutflow;
   final double growingOutflow;
   final double fixedOutflow;
+  final double totalWealth;
   final List<ContractContributionDto>? contractBreakdown;
   final DateTime? generatedAt;
 
@@ -98,6 +100,7 @@ class MonthlySnapshotDto {
       reducingOutflow: (data['reducingOutflow'] as num).toDouble(),
       growingOutflow: (data['growingOutflow'] as num).toDouble(),
       fixedOutflow: (data['fixedOutflow'] as num).toDouble(),
+      totalWealth: (data['totalWealth'] as num?)?.toDouble() ?? 0.0,
       contractBreakdown: breakdown
           ?.map(
             (e) => ContractContributionDto.fromMap(e as Map<String, dynamic>),
@@ -120,6 +123,7 @@ class MonthlySnapshotDto {
       reducingOutflow: snapshot.reducingOutflow,
       growingOutflow: snapshot.growingOutflow,
       fixedOutflow: snapshot.fixedOutflow,
+      totalWealth: snapshot.totalWealth,
       contractBreakdown: snapshot.contractBreakdown
           ?.map(ContractContributionDto.fromEntity)
           .toList(),
@@ -138,6 +142,7 @@ class MonthlySnapshotDto {
       reducingOutflow: reducingOutflow,
       growingOutflow: growingOutflow,
       fixedOutflow: fixedOutflow,
+      totalWealth: totalWealth,
       contractBreakdown: contractBreakdown
           ?.map((dto) => dto.toEntity())
           .toList(),
@@ -156,6 +161,7 @@ class MonthlySnapshotDto {
       'reducingOutflow': reducingOutflow,
       'growingOutflow': growingOutflow,
       'fixedOutflow': fixedOutflow,
+      'totalWealth': totalWealth,
     };
 
     if (contractBreakdown != null && contractBreakdown!.isNotEmpty) {

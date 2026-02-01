@@ -217,6 +217,32 @@ class ContractDetailCubit extends Cubit<ContractDetailState> {
     );
   }
 
+  /// Permanently delete the contract
+  Future<void> deleteContract() async {
+    final currentState = state;
+    if (currentState is! ContractDetailLoaded) return;
+
+    emit(currentState.copyWith(isUpdating: true));
+
+    final result = await _contractRepository.deleteContract(
+      currentState.contract.id,
+    );
+
+    result.fold(
+      (failure) {
+        emit(currentState.copyWith(isUpdating: false));
+      },
+      (_) {
+        emit(
+          ContractDetailActionCompleted(
+            action: ContractAction.deleted,
+            contract: currentState.contract,
+          ),
+        );
+      },
+    );
+  }
+
   /// Refresh contract data
   Future<void> refresh() async {
     final currentState = state;

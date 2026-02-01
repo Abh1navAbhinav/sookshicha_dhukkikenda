@@ -187,6 +187,7 @@ class MonthlyExecutionEngine {
     double reducingOutflow = 0.0;
     double growingOutflow = 0.0;
     double fixedOutflow = 0.0;
+    double totalWealth = 0.0;
 
     for (final contract in activeContracts) {
       final contribution = _processContract(contract, targetDate);
@@ -197,6 +198,7 @@ class MonthlyExecutionEngine {
           break;
         case ContractType.growing:
           growingOutflow += contribution.amount;
+          totalWealth += contract.growingMetadata?.currentValue ?? 0.0;
           break;
         case ContractType.fixed:
           fixedOutflow += contribution.amount;
@@ -212,6 +214,7 @@ class MonthlyExecutionEngine {
     reducingOutflow = _round(reducingOutflow);
     growingOutflow = _round(growingOutflow);
     fixedOutflow = _round(fixedOutflow);
+    totalWealth = _round(totalWealth);
 
     final mandatoryOutflow = _round(
       reducingOutflow + growingOutflow + fixedOutflow,
@@ -227,6 +230,7 @@ class MonthlyExecutionEngine {
       reducingOutflow: reducingOutflow,
       growingOutflow: growingOutflow,
       fixedOutflow: fixedOutflow,
+      totalWealth: totalWealth,
       contractBreakdown: includeBreakdown ? contributions : null,
       generatedAt: DateTime.now(),
     );
@@ -280,6 +284,11 @@ class MonthlyExecutionEngine {
     if (emi <= _zeroTolerance) return 999; // Error case
 
     final monthlyRate = annualInterestRate / 12 / 100;
+
+    // Zero interest case
+    if (monthlyRate <= 0) {
+      return (balance / emi).ceil();
+    }
 
     // If interest is more than EMI, it will never end
     if (balance * monthlyRate >= emi) return 999;

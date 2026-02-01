@@ -27,12 +27,10 @@ class _AddContractScreenState extends State<AddContractScreen> {
   final _lenderController = TextEditingController();
   final _tenureController = TextEditingController();
   final _principalController = TextEditingController();
-  final _interestController = TextEditingController();
 
   final _amountFocus = FocusNode();
   final _principalFocus = FocusNode();
   final _tenureFocus = FocusNode();
-  final _interestFocus = FocusNode();
 
   bool _isAutoCalculating = false;
   String? _validationError;
@@ -43,7 +41,6 @@ class _AddContractScreenState extends State<AddContractScreen> {
     _amountController.addListener(_onFieldChanged);
     _principalController.addListener(_onFieldChanged);
     _tenureController.addListener(_onFieldChanged);
-    _interestController.addListener(_onFieldChanged);
   }
 
   @override
@@ -51,11 +48,9 @@ class _AddContractScreenState extends State<AddContractScreen> {
     _amountController.removeListener(_onFieldChanged);
     _principalController.removeListener(_onFieldChanged);
     _tenureController.removeListener(_onFieldChanged);
-    _interestController.removeListener(_onFieldChanged);
     _amountFocus.dispose();
     _principalFocus.dispose();
     _tenureFocus.dispose();
-    _interestFocus.dispose();
     super.dispose();
   }
 
@@ -64,85 +59,25 @@ class _AddContractScreenState extends State<AddContractScreen> {
 
     final principal = double.tryParse(_principalController.text) ?? 0;
     final emi = double.tryParse(_amountController.text) ?? 0;
-    final interest = double.tryParse(_interestController.text) ?? 0;
     final tenure = int.tryParse(_tenureController.text) ?? 0;
 
     if (principal <= 0) return;
 
     setState(() => _validationError = null);
-    const engine = MonthlyExecutionEngine();
 
-    // Primary Validation: Is EMI enough to cover interest?
-    if (emi > 0 && interest > 0) {
-      final monthlyInterest = principal * (interest / 12 / 100);
-      if (emi <= monthlyInterest) {
+    // Secondary Validation: Is Tenure sufficient for Principal?
+    // Even at 0% interest, EMI * Tenure must be >= Principal
+    if (emi > 0 && tenure > 0) {
+      if (emi * tenure < principal) {
         setState(() {
+          final minMonths = (principal / emi).ceil();
           _validationError =
-              'Monthly amount must be greater than ₹${monthlyInterest.toStringAsFixed(2)} to cover interest.';
-          // Clear tenure as it's now invalid (infinite)
-          _isAutoCalculating = true;
-          _tenureController.clear();
-          _isAutoCalculating = false;
+              'Tenure of $tenure ${tenure == 1 ? 'month' : 'months'} is too short. '
+              'At ₹${emi.toInt()} per month, it will take at least $minMonths months to pay off ₹${principal.toInt()}.';
         });
         return;
       }
     }
-
-    if (_interestFocus.hasFocus) {
-      // Typing Interest: Only auto-calculate Tenure
-      if (emi > 0) {
-        _calculateAndSetTenure(engine, principal, interest, emi);
-      }
-    } else if (_tenureFocus.hasFocus) {
-      // Typing Tenure: Only auto-calculate Interest
-      if (emi > 0) {
-        _calculateAndSetInterest(engine, principal, emi, tenure);
-      }
-    } else if (_amountFocus.hasFocus || _principalFocus.hasFocus) {
-      // Typing EMI or Principal: Update Tenure if Interest exists, else update Interest if Tenure exists
-      if (interest > 0) {
-        _calculateAndSetTenure(engine, principal, interest, emi);
-      } else if (tenure > 0) {
-        _calculateAndSetInterest(engine, principal, emi, tenure);
-      }
-    }
-  }
-
-  void _calculateAndSetTenure(
-    MonthlyExecutionEngine engine,
-    double principal,
-    double interest,
-    double emi,
-  ) {
-    if (emi <= 0) return;
-    final calculated = engine.calculateRemainingTenure(
-      balance: principal,
-      annualInterestRate: interest,
-      emi: emi,
-    );
-    if (calculated > 0 && calculated < 999) {
-      _isAutoCalculating = true;
-      _tenureController.text = calculated.toString();
-      _isAutoCalculating = false;
-    }
-  }
-
-  void _calculateAndSetInterest(
-    MonthlyExecutionEngine engine,
-    double principal,
-    double emi,
-    int tenure,
-  ) {
-    if (tenure <= 0 || emi <= 0) return;
-    final calculated = engine.calculateAnnualInterestRate(
-      principal: principal,
-      emi: emi,
-      tenureMonths: tenure,
-    );
-    // Allow 0 or positive
-    _isAutoCalculating = true;
-    _interestController.text = calculated.toStringAsFixed(2);
-    _isAutoCalculating = false;
   }
 
   @override
@@ -210,6 +145,23 @@ class _AddContractScreenState extends State<AddContractScreen> {
                     );
                     if (date != null) setState(() => _startDate = date);
                   },
+                ),
+                const SizedBox(height: 16),
+                _buildDatePicker(
+                  label: 'End Date (Optional)',
+                  value: _endDate,
+                  isOptional: true,
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate:
+                          _endDate ?? _startDate.add(const Duration(days: 365)),
+                      firstDate: _startDate,
+                      lastDate: DateTime(2100),
+                    );
+                    if (date != null) setState(() => _endDate = date);
+                  },
+                  onClear: () => setState(() => _endDate = null),
                 ),
                 const SizedBox(height: 24),
                 _buildTypeSpecificFields(),
@@ -322,8 +274,10 @@ class _AddContractScreenState extends State<AddContractScreen> {
 
   Widget _buildDatePicker({
     required String label,
-    required DateTime value,
+    required DateTime? value,
     required VoidCallback onTap,
+    bool isOptional = false,
+    VoidCallback? onClear,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -336,22 +290,34 @@ class _AddContractScreenState extends State<AddContractScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: CalmTheme.textTheme.bodySmall),
-                const SizedBox(height: 4),
-                Text(
-                  '${value.day}/${value.month}/${value.year}',
-                  style: CalmTheme.textTheme.bodyLarge,
-                ),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: CalmTheme.textTheme.bodySmall),
+                  const SizedBox(height: 4),
+                  Text(
+                    value != null
+                        ? '${value.day}/${value.month}/${value.year}'
+                        : 'Not Set',
+                    style: CalmTheme.textTheme.bodyLarge?.copyWith(
+                      color: value == null ? CalmTheme.textMuted : null,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            Icon(
-              Icons.calendar_today_rounded,
-              size: 20,
-              color: CalmTheme.primary,
-            ),
+            if (isOptional && value != null)
+              IconButton(
+                icon: const Icon(Icons.close, size: 20),
+                onPressed: onClear,
+              )
+            else
+              Icon(
+                Icons.calendar_today_rounded,
+                size: 20,
+                color: CalmTheme.primary,
+              ),
           ],
         ),
       ),
@@ -371,15 +337,8 @@ class _AddContractScreenState extends State<AddContractScreen> {
             hint: '0.00',
             keyboardType: TextInputType.number,
             prefixText: '₹ ',
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            controller: _interestController,
-            focusNode: _interestFocus,
-            label: 'Interest Rate (Annual %)',
-            hint: 'e.g. 8.5',
-            keyboardType: TextInputType.number,
-            suffixText: '%',
+            validator: (v) =>
+                double.tryParse(v ?? '') == null ? 'Required' : null,
           ),
           const SizedBox(height: 16),
           _buildTextField(
@@ -388,6 +347,7 @@ class _AddContractScreenState extends State<AddContractScreen> {
             label: 'Tenure (Months)',
             hint: 'e.g. 240',
             keyboardType: TextInputType.number,
+            validator: (v) => int.tryParse(v ?? '') == null ? 'Required' : null,
           ),
           const SizedBox(height: 16),
           _buildTextField(
@@ -397,7 +357,7 @@ class _AddContractScreenState extends State<AddContractScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Keep either Tenure or Interest empty to auto-calculate based on Principal and Monthly Amount.',
+            'Interest rate will be calculated automatically based on Principal, Monthly Amount, and Tenure.',
             style: CalmTheme.textTheme.bodySmall?.copyWith(
               color: CalmTheme.textMuted,
               fontStyle: FontStyle.italic,
@@ -440,13 +400,14 @@ class _AddContractScreenState extends State<AddContractScreen> {
     return BlocBuilder<AddContractCubit, AddContractState>(
       builder: (context, state) {
         final isLoading = state is AddContractSubmitting;
+        final hasError = _validationError != null;
         return SizedBox(
           width: double.infinity,
           height: 56,
           child: ElevatedButton(
-            onPressed: isLoading ? null : _submit,
+            onPressed: (isLoading || hasError) ? null : _submit,
             style: ElevatedButton.styleFrom(
-              backgroundColor: CalmTheme.primary,
+              backgroundColor: hasError ? CalmTheme.divider : CalmTheme.primary,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(CalmTheme.radiusLg),
@@ -480,11 +441,22 @@ class _AddContractScreenState extends State<AddContractScreen> {
 
     ContractMetadata metadata;
     if (_selectedType == ContractType.reducing) {
+      final principal = double.tryParse(_principalController.text) ?? 0;
+      final tenure = int.tryParse(_tenureController.text) ?? 0;
+
+      // Calculate interest rate automatically
+      const engine = MonthlyExecutionEngine();
+      final interestRate = engine.calculateAnnualInterestRate(
+        principal: principal,
+        emi: amount,
+        tenureMonths: tenure,
+      );
+
       metadata = ReducingContractMetadata(
-        principalAmount: double.tryParse(_principalController.text) ?? 0,
-        interestRatePercent: double.tryParse(_interestController.text) ?? 0,
-        tenureMonths: int.tryParse(_tenureController.text) ?? 0,
-        remainingBalance: double.tryParse(_principalController.text) ?? 0,
+        principalAmount: principal,
+        interestRatePercent: interestRate,
+        tenureMonths: tenure,
+        remainingBalance: principal,
         emiAmount: amount,
         lenderName: _lenderController.text,
       );
@@ -501,6 +473,7 @@ class _AddContractScreenState extends State<AddContractScreen> {
       type: _selectedType,
       monthlyAmount: amount,
       startDate: _startDate,
+      endDate: _endDate,
       metadata: metadata,
     );
   }

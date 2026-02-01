@@ -56,6 +56,9 @@ final class DashboardLoaded extends DashboardState {
   /// All mandatory payments
   double get mandatoryOutflow => currentSnapshot.mandatoryOutflow;
 
+  /// Total wealth (investment corpus)
+  double get wealth => currentSnapshot.totalWealth;
+
   /// Whether user is in deficit
   bool get isDeficit => freeBalance < 0;
 

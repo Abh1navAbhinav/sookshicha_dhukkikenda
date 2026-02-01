@@ -30,6 +30,7 @@ final class MonthlySnapshot extends Equatable {
     required this.reducingOutflow,
     required this.growingOutflow,
     required this.fixedOutflow,
+    required this.totalWealth,
     this.contractBreakdown,
     this.generatedAt,
   });
@@ -58,6 +59,9 @@ final class MonthlySnapshot extends Equatable {
 
   /// Outflow from fixed contracts (subscriptions/insurance)
   final double fixedOutflow;
+
+  /// Total wealth accumulated (sum of all growing contract values)
+  final double totalWealth;
 
   /// Breakdown of each contract's contribution (optional detail)
   final List<ContractContribution>? contractBreakdown;
@@ -123,6 +127,7 @@ final class MonthlySnapshot extends Equatable {
       reducingOutflow: 0.0,
       growingOutflow: 0.0,
       fixedOutflow: 0.0,
+      totalWealth: 0.0,
       generatedAt: DateTime.now(),
     );
   }
@@ -139,6 +144,7 @@ final class MonthlySnapshot extends Equatable {
     double? reducingOutflow,
     double? growingOutflow,
     double? fixedOutflow,
+    double? totalWealth,
     List<ContractContribution>? contractBreakdown,
     DateTime? generatedAt,
   }) {
@@ -151,6 +157,7 @@ final class MonthlySnapshot extends Equatable {
       reducingOutflow: reducingOutflow ?? this.reducingOutflow,
       growingOutflow: growingOutflow ?? this.growingOutflow,
       fixedOutflow: fixedOutflow ?? this.fixedOutflow,
+      totalWealth: totalWealth ?? this.totalWealth,
       contractBreakdown: contractBreakdown ?? this.contractBreakdown,
       generatedAt: generatedAt ?? this.generatedAt,
     );
@@ -168,6 +175,7 @@ final class MonthlySnapshot extends Equatable {
       'reducingOutflow': reducingOutflow,
       'growingOutflow': growingOutflow,
       'fixedOutflow': fixedOutflow,
+      'totalWealth': totalWealth,
       'contractBreakdown': contractBreakdown?.map((c) => c.toJson()).toList(),
       'generatedAt': generatedAt?.toIso8601String(),
     };
@@ -184,6 +192,7 @@ final class MonthlySnapshot extends Equatable {
       reducingOutflow: (json['reducingOutflow'] as num).toDouble(),
       growingOutflow: (json['growingOutflow'] as num).toDouble(),
       fixedOutflow: (json['fixedOutflow'] as num).toDouble(),
+      totalWealth: (json['totalWealth'] as num?)?.toDouble() ?? 0.0,
       contractBreakdown: (json['contractBreakdown'] as List<dynamic>?)
           ?.map((e) => ContractContribution.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -203,6 +212,7 @@ final class MonthlySnapshot extends Equatable {
     reducingOutflow,
     growingOutflow,
     fixedOutflow,
+    totalWealth,
     contractBreakdown,
     generatedAt,
   ];

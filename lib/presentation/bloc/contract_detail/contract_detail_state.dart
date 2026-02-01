@@ -88,6 +88,10 @@ final class ContractDetailLoaded extends ContractDetailState {
       emi: metadata.emiAmount,
     );
 
+    final totalPrincipalPaid =
+        metadata.principalAmount - metadata.remainingBalance;
+    final totalInterestPaid = metadata.totalPaid - totalPrincipalPaid;
+
     return ReducingDetails(
       principalAmount: metadata.principalAmount,
       remainingBalance: metadata.remainingBalance,
@@ -97,6 +101,8 @@ final class ContractDetailLoaded extends ContractDetailState {
       totalInterest: _calculateTotalInterest(metadata),
       progressPercent: _calculateProgress(metadata),
       totalPaid: metadata.totalPaid,
+      totalPrincipalPaid: totalPrincipalPaid,
+      totalInterestPaid: totalInterestPaid,
       principalPortion: principalPortion,
       interestPortion: interestPortion,
       projectedRemainingMonths: projectedRemaining,
@@ -114,6 +120,9 @@ final class ContractDetailLoaded extends ContractDetailState {
       expectedRate: metadata.expectedReturnPercent ?? 0,
       targetAmount: metadata.targetAmount,
       returns: metadata.currentValue - metadata.totalInvested,
+      startDate: contract.startDate,
+      endDate: contract.endDate,
+      monthlyContribution: contract.monthlyAmount,
     );
   }
 
@@ -180,7 +189,7 @@ final class ContractDetailActionCompleted extends ContractDetailState {
 }
 
 /// Available actions on a contract
-enum ContractAction { paused, resumed, closed }
+enum ContractAction { paused, resumed, closed, deleted }
 
 // ============== Detail Models ==============
 
@@ -195,6 +204,8 @@ class ReducingDetails {
     required this.totalInterest,
     required this.progressPercent,
     required this.totalPaid,
+    required this.totalPrincipalPaid,
+    required this.totalInterestPaid,
     required this.principalPortion,
     required this.interestPortion,
     required this.projectedRemainingMonths,
@@ -208,6 +219,8 @@ class ReducingDetails {
   final double totalInterest;
   final double progressPercent;
   final double totalPaid;
+  final double totalPrincipalPaid;
+  final double totalInterestPaid;
   final double principalPortion;
   final double interestPortion;
   final int projectedRemainingMonths;
@@ -220,7 +233,10 @@ class GrowingDetails {
     required this.currentValue,
     required this.expectedRate,
     required this.returns,
+    required this.startDate,
+    required this.monthlyContribution,
     this.targetAmount,
+    this.endDate,
   });
 
   final double invested;
@@ -228,8 +244,37 @@ class GrowingDetails {
   final double expectedRate;
   final double? targetAmount;
   final double returns;
+  final DateTime startDate;
+  final DateTime? endDate;
+  final double monthlyContribution;
 
   double get returnsPercent => invested > 0 ? (returns / invested) * 100 : 0;
+
+  /// Total amount we will have paid at the end of the contract
+  double? get projectedTotalPaid {
+    if (endDate == null) return null;
+    final totalMonths =
+        (endDate!.year - startDate.year) * 12 +
+        (endDate!.month - startDate.month);
+    return totalMonths * monthlyContribution;
+  }
+
+  /// Estimated future value at end date (linear projection for simplicity)
+  double? get projectedFutureValue {
+    if (endDate == null || expectedRate <= 0) return null;
+    final now = DateTime.now();
+    final remainingMonths =
+        (endDate!.year - now.year) * 12 + (endDate!.month - now.month);
+    if (remainingMonths <= 0) return currentValue;
+
+    // Simple monthly compounding approximation for UI
+    double futureValue = currentValue;
+    final monthlyRate = (expectedRate / 100) / 12;
+    for (int i = 0; i < remainingMonths; i++) {
+      futureValue = (futureValue + monthlyContribution) * (1 + monthlyRate);
+    }
+    return futureValue;
+  }
 }
 
 /// Details specific to fixed (subscription) contracts

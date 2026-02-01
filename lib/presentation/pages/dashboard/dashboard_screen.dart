@@ -85,11 +85,11 @@ class _DashboardContent extends StatelessWidget {
             ),
           ),
 
-          // Income & Outflow Summary
           SliverToBoxAdapter(
             child: _IncomeOutflowSummary(
               income: state.income,
               outflow: state.mandatoryOutflow,
+              wealth: state.wealth,
             ),
           ),
 
@@ -252,36 +252,51 @@ class _HealthIndicator extends StatelessWidget {
   }
 }
 
-/// Income & Outflow Summary
 class _IncomeOutflowSummary extends StatelessWidget {
-  const _IncomeOutflowSummary({required this.income, required this.outflow});
+  const _IncomeOutflowSummary({
+    required this.income,
+    required this.outflow,
+    required this.wealth,
+  });
 
   final double income;
   final double outflow;
+  final double wealth;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(24),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: _SummaryItem(
-              label: 'Income',
-              amount: income,
-              icon: Icons.arrow_downward_rounded,
-              iconColor: CalmTheme.successMuted,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _SummaryItem(
+                  label: 'Income',
+                  amount: income,
+                  icon: Icons.arrow_downward_rounded,
+                  iconColor: CalmTheme.successMuted,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _SummaryItem(
+                  label: 'Mandatory',
+                  amount: outflow,
+                  icon: Icons.arrow_upward_rounded,
+                  iconColor: CalmTheme.dangerMuted,
+                  isOutflow: true,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _SummaryItem(
-              label: 'Mandatory',
-              amount: outflow,
-              icon: Icons.arrow_upward_rounded,
-              iconColor: CalmTheme.dangerMuted,
-              isOutflow: true,
-            ),
+          const SizedBox(height: 16),
+          _SummaryItem(
+            label: 'Total Wealth (Investments)',
+            amount: wealth,
+            icon: Icons.account_balance_wallet_outlined,
+            iconColor: CalmTheme.primary,
           ),
         ],
       ),

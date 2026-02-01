@@ -374,6 +374,7 @@ void main() {
         reducingOutflow: 30000,
         growingOutflow: 20000,
         fixedOutflow: 10000,
+        totalWealth: 50000,
       );
 
       expect(snapshot.freeBalance, 40000);
@@ -391,6 +392,7 @@ void main() {
         reducingOutflow: 0,
         growingOutflow: 0,
         fixedOutflow: 0,
+        totalWealth: 0,
       );
 
       expect(snapshot.monthName, 'March');
@@ -407,6 +409,7 @@ void main() {
         reducingOutflow: 40000,
         growingOutflow: 25000,
         fixedOutflow: 10000,
+        totalWealth: 100000,
         generatedAt: DateTime(2026, 6, 1),
       );
 

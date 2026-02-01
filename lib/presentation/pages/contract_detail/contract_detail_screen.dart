@@ -46,9 +46,12 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
           listener: (context, state) {
             if (state is ContractDetailActionCompleted) {
               Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Contract ${state.action.name}')),
-              );
+              final message = state.action == ContractAction.deleted
+                  ? 'Contract deleted permanently'
+                  : 'Contract ${state.action.name}';
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(message)));
             }
           },
           builder: (context, state) {
@@ -230,19 +233,15 @@ class _TypeDetails extends StatelessWidget {
       final d = state.reducingDetails!;
       return _DetailsCard(
         title: 'Loan Details',
-        items: [
-          ('Original Principal', _formatCurrency(d.principalAmount)),
-          ('Total Paid', _formatCurrency(d.totalPaid)),
-          ('Remaining Balance', _formatCurrency(d.remainingBalance)),
-          ('Interest Rate', '${d.interestRate}%'),
-          ('Progress', '${d.progressPercent.toStringAsFixed(1)}%'),
-        ],
         progress: d.progressPercent / 100,
         extra: Column(
           children: [
             const Divider(height: 32),
-            _InfoRow('Monthly Interest', _formatCurrency(d.interestPortion)),
-            _InfoRow('Monthly Principal', _formatCurrency(d.principalPortion)),
+            _DetailRow('Monthly Interest', _formatCurrency(d.interestPortion)),
+            _DetailRow(
+              'Monthly Principal',
+              _formatCurrency(d.principalPortion),
+            ),
             Text(
               'This month\'s split',
               style: CalmTheme.textTheme.bodySmall?.copyWith(
@@ -251,6 +250,28 @@ class _TypeDetails extends StatelessWidget {
             ),
           ],
         ),
+        children: [
+          _DetailRow('Original Principal', _formatCurrency(d.principalAmount)),
+          _ExpandableDetailRow(
+            label: 'Total Paid',
+            value: _formatCurrency(d.totalPaid),
+            children: [
+              _DetailRow(
+                'Principal Paid',
+                _formatCurrency(d.totalPrincipalPaid),
+                isSubItem: true,
+              ),
+              _DetailRow(
+                'Interest Paid',
+                _formatCurrency(d.totalInterestPaid),
+                isSubItem: true,
+              ),
+            ],
+          ),
+          _DetailRow('Remaining Balance', _formatCurrency(d.remainingBalance)),
+          _DetailRow('Interest Rate', '${d.interestRate}%'),
+          _DetailRow('Progress', '${d.progressPercent.toStringAsFixed(1)}%'),
+        ],
       );
     }
     // Growing (Investment) details
@@ -258,10 +279,21 @@ class _TypeDetails extends StatelessWidget {
       final d = state.growingDetails!;
       return _DetailsCard(
         title: 'Investment Details',
-        items: [
-          ('Total Invested', _formatCurrency(d.invested)),
-          ('Current Value', _formatCurrency(d.currentValue)),
-          ('Returns', '${d.returnsPercent.toStringAsFixed(1)}%'),
+        children: [
+          _DetailRow('Total Invested', _formatCurrency(d.invested)),
+          _DetailRow('Current Value', _formatCurrency(d.currentValue)),
+          _DetailRow('Absolute Returns', _formatCurrency(d.returns)),
+          _DetailRow('Returns %', '${d.returnsPercent.toStringAsFixed(1)}%'),
+          if (d.projectedTotalPaid != null)
+            _DetailRow(
+              'Total Commitment',
+              _formatCurrency(d.projectedTotalPaid!),
+            ),
+          if (d.projectedFutureValue != null)
+            _DetailRow(
+              'Est. Value at End',
+              _formatCurrency(d.projectedFutureValue!),
+            ),
         ],
       );
     }
@@ -270,11 +302,11 @@ class _TypeDetails extends StatelessWidget {
       final d = state.fixedDetails!;
       return _DetailsCard(
         title: 'Subscription Details',
-        items: [
-          ('Category', d.category),
-          ('Billing', d.billingCycle),
-          ('Auto Renew', d.autoRenew ? 'Yes' : 'No'),
-          ('Total Paid', _formatCurrency(d.totalPaid)),
+        children: [
+          _DetailRow('Category', d.category),
+          _DetailRow('Billing', d.billingCycle),
+          _DetailRow('Auto Renew', d.autoRenew ? 'Yes' : 'No'),
+          _DetailRow('Total Paid', _formatCurrency(d.totalPaid)),
         ],
       );
     }
@@ -289,12 +321,12 @@ class _TypeDetails extends StatelessWidget {
 class _DetailsCard extends StatelessWidget {
   const _DetailsCard({
     required this.title,
-    required this.items,
+    required this.children,
     this.progress,
     this.extra,
   });
   final String title;
-  final List<(String, String)> items;
+  final List<Widget> children;
   final double? progress;
   final Widget? extra;
 
@@ -308,17 +340,7 @@ class _DetailsCard extends StatelessWidget {
           children: [
             Text(title, style: CalmTheme.textTheme.titleMedium),
             const SizedBox(height: 16),
-            for (final item in items)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(item.$1, style: CalmTheme.textTheme.bodyMedium),
-                    Text(item.$2, style: CalmTheme.textTheme.titleSmall),
-                  ],
-                ),
-              ),
+            ...children,
             if (progress != null) ...[
               const SizedBox(height: 8),
               CalmProgress(value: progress!),
@@ -327,6 +349,92 @@ class _DetailsCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow(this.label, this.value, {this.isSubItem = false});
+  final String label;
+  final String value;
+  final bool isSubItem;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12, left: isSubItem ? 16 : 0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: isSubItem
+                ? CalmTheme.textTheme.bodySmall
+                : CalmTheme.textTheme.bodyMedium,
+          ),
+          Text(
+            value,
+            style: isSubItem
+                ? CalmTheme.textTheme.labelMedium
+                : CalmTheme.textTheme.titleSmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExpandableDetailRow extends StatefulWidget {
+  const _ExpandableDetailRow({
+    required this.label,
+    required this.value,
+    required this.children,
+  });
+
+  final String label;
+  final String value;
+  final List<Widget> children;
+
+  @override
+  State<_ExpandableDetailRow> createState() => _ExpandableDetailRowState();
+}
+
+class _ExpandableDetailRowState extends State<_ExpandableDetailRow> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        InkWell(
+          onTap: () => setState(() => _isExpanded = !_isExpanded),
+          borderRadius: BorderRadius.circular(4),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Text(widget.label, style: CalmTheme.textTheme.bodyMedium),
+                    const SizedBox(width: 4),
+                    Icon(
+                      _isExpanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      size: 18,
+                      color: CalmTheme.textMuted.withValues(alpha: 0.5),
+                    ),
+                  ],
+                ),
+                Text(widget.value, style: CalmTheme.textTheme.titleSmall),
+              ],
+            ),
+          ),
+        ),
+        if (_isExpanded) ...[const SizedBox(height: 4), ...widget.children],
+        const SizedBox(height: 8),
+      ],
     );
   }
 }
@@ -358,32 +466,15 @@ class _TimelineInfo extends StatelessWidget {
       child: CalmCard(
         child: Column(
           children: [
-            _InfoRow('Started', dateFormat.format(state.startDate)),
-            _InfoRow('Ends', dateFormat.format(endDate)),
-            _InfoRow('Months Elapsed', '${state.monthsElapsed}'),
-            if (monthsLeft > 0) _InfoRow('Months Left', '$monthsLeft'),
+            _DetailRow('Started', dateFormat.format(state.startDate)),
+            if (state.endDate != null)
+              _DetailRow('Ends', dateFormat.format(state.endDate!))
+            else if (state.contract.type == ContractType.reducing)
+              _DetailRow('Est. Closure', dateFormat.format(endDate)),
+            _DetailRow('Months Elapsed', '${state.monthsElapsed}'),
+            if (monthsLeft > 0) _DetailRow('Months Remaining', '$monthsLeft'),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow(this.label, this.value);
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: CalmTheme.textTheme.bodyMedium),
-          Text(value, style: CalmTheme.textTheme.titleSmall),
-        ],
       ),
     );
   }
@@ -529,30 +620,42 @@ class _Actions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (state.contract.isClosed) return const SizedBox.shrink();
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (state.isActive)
-            OutlinedButton(
-              onPressed: () =>
-                  context.read<ContractDetailCubit>().pauseContract(),
-              child: const Text('Pause Contract'),
-            )
-          else if (state.isPaused)
-            ElevatedButton(
-              onPressed: () =>
-                  context.read<ContractDetailCubit>().resumeContract(),
-              child: const Text('Resume Contract'),
+          if (!state.contract.isClosed) ...[
+            if (state.isActive)
+              OutlinedButton(
+                onPressed: () =>
+                    context.read<ContractDetailCubit>().pauseContract(),
+                child: const Text('Pause Contract'),
+              )
+            else if (state.isPaused)
+              ElevatedButton(
+                onPressed: () =>
+                    context.read<ContractDetailCubit>().resumeContract(),
+                child: const Text('Resume Contract'),
+              ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => _showCloseDialog(context),
+              style: TextButton.styleFrom(foregroundColor: CalmTheme.danger),
+              child: const Text('Close Contract'),
             ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 8),
+          ],
           TextButton(
-            onPressed: () => _showCloseDialog(context),
-            style: TextButton.styleFrom(foregroundColor: CalmTheme.danger),
-            child: const Text('Close Contract'),
+            onPressed: () => _showDeleteDialog(context),
+            style: TextButton.styleFrom(
+              foregroundColor: CalmTheme.textMuted,
+              textStyle: const TextStyle(
+                decoration: TextDecoration.underline,
+                fontSize: 13,
+              ),
+            ),
+            child: const Text('Delete Permanently'),
           ),
         ],
       ),
@@ -564,7 +667,9 @@ class _Actions extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Close Contract?'),
-        content: const Text('This cannot be undone.'),
+        content: const Text(
+          'This will stop all future updates for this contract. It will be moved to the "Closed" section.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -577,6 +682,32 @@ class _Actions extends StatelessWidget {
             },
             style: TextButton.styleFrom(foregroundColor: CalmTheme.danger),
             child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Contract?'),
+        content: const Text(
+          'This will permanently remove all data for this contract. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<ContractDetailCubit>().deleteContract();
+            },
+            style: TextButton.styleFrom(foregroundColor: CalmTheme.danger),
+            child: const Text('Delete'),
           ),
         ],
       ),
