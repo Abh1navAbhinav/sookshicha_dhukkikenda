@@ -399,7 +399,11 @@ class _TypeDetails extends StatelessWidget {
 }
 
 String _formatCurrency(double value) {
-  return NumberFormat.currency(symbol: '₹', decimalDigits: 0).format(value);
+  return NumberFormat.currency(
+    locale: 'en_IN',
+    symbol: '₹',
+    decimalDigits: 0,
+  ).format(value);
 }
 
 class _DetailsCard extends StatelessWidget {
@@ -676,7 +680,7 @@ class _PrepaymentActions extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Settle Loan?'),
         content: Text(
-          'This will close the loan by paying the remaining balance of ₹${balance.toInt().toString()}.',
+          'This will close the loan by paying the remaining balance of ${_formatCurrency(balance)}.',
         ),
         actions: [
           TextButton(

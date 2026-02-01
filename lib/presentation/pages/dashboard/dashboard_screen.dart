@@ -242,7 +242,11 @@ class _CompactInteractiveAmount extends StatelessWidget {
       return '₹${(absValue / 1000).toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')}k';
     }
 
-    return NumberFormat.currency(symbol: '₹', decimalDigits: 0).format(value);
+    return NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: '₹',
+      decimalDigits: 0,
+    ).format(value);
   }
 
   @override

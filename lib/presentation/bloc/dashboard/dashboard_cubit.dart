@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
+import 'package:intl/intl.dart';
 
 import '../../../domain/entities/contract/contract.dart';
 import '../../../domain/entities/contract/contract_type.dart';
@@ -106,6 +107,7 @@ class DashboardCubit extends Cubit<DashboardState> {
       // 6. Total Debts Pending & Total Investment
       double totalPendingDebt = 0;
       double totalInvestment = 0;
+      int maxRemainingMonths = 0;
 
       for (final contract in contractsList) {
         if (contract.type == ContractType.reducing) {
@@ -117,14 +119,16 @@ class DashboardCubit extends Cubit<DashboardState> {
               annualInterestRate: metadata.interestRatePercent,
               emi: metadata.emiAmount,
             );
+
+            if (remainingMonths > maxRemainingMonths) {
+              maxRemainingMonths = remainingMonths;
+            }
+
             totalPendingDebt += remainingMonths * metadata.emiAmount;
           }
         } else if (contract.type == ContractType.fixed) {
           final metadata = contract.fixedMetadata;
           if (metadata != null) {
-            // Use monthlyAmount as the default value marker for fixed assets/liabilities
-            // unless a specific coverage value is set (e.g. for insurance).
-            // For simple fixed entries (Gold, Friendly Loan), monthlyAmount holds the principal/value.
             final value = metadata.coverageAmount ?? contract.monthlyAmount;
 
             if (metadata.isLiability) {
@@ -162,7 +166,7 @@ class DashboardCubit extends Cubit<DashboardState> {
             'If you stay the course, your debt will be cleared by ${_getMonthName(debtClosureDate.month)} ${debtClosureDate.year} ($monthsUntilClosure months).',
           );
           insights.add(
-            'At that time, your monthly investment surplus will be ₹${projectedIncomeAtDebtClosure?.toStringAsFixed(0)}.',
+            'At that time, your monthly investment surplus will be ${_formatCurrency(projectedIncomeAtDebtClosure ?? 0)}.',
           );
         } else {
           insights.add(
@@ -170,8 +174,16 @@ class DashboardCubit extends Cubit<DashboardState> {
           );
         }
       } else if (totalPendingDebt > 0) {
+        final years = maxRemainingMonths ~/ 12;
+        final months = maxRemainingMonths % 12;
+        final durationParts = <String>[];
+        if (years > 0) durationParts.add('$years years');
+        if (months > 0) durationParts.add('$months months');
+
+        final durationStr = durationParts.join(' and ');
+
         insights.add(
-          'Your current loans are projected to continue beyond 3 years.',
+          'Your current loans are projected to continue for another $durationStr.',
         );
       } else {
         insights.add('You have no active debts. Keep growing your wealth!');
@@ -183,7 +195,7 @@ class DashboardCubit extends Cubit<DashboardState> {
           (s) => s.month == 12 && s.year == currentYear,
         );
         insights.add(
-          'By end of $currentYear, your debt outflow will be ₹${yearEndSnapshot.reducingOutflow.toStringAsFixed(0)} and investment income ₹${yearEndSnapshot.growingOutflow.toStringAsFixed(0)}.',
+          'By end of $currentYear, your remaining debt will be ${_formatCurrency(yearEndSnapshot.totalDebt)} and total wealth will be ${_formatCurrency(yearEndSnapshot.totalWealth)}.',
         );
       } catch (_) {
         // If projection doesn't reach year end
@@ -235,6 +247,14 @@ class DashboardCubit extends Cubit<DashboardState> {
       'December',
     ];
     return months[month - 1];
+  }
+
+  String _formatCurrency(double value) {
+    return NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: '₹',
+      decimalDigits: 0,
+    ).format(value);
   }
 
   /// Refresh dashboard data

@@ -57,6 +57,7 @@ class AmountDisplay extends StatelessWidget {
 
   String _formatAmount() {
     final formatter = NumberFormat.currency(
+      locale: 'en_IN',
       symbol: showCurrency ? '₹' : '',
       decimalDigits: 0,
     );
