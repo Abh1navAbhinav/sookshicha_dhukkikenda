@@ -7,6 +7,7 @@ import 'package:sookshicha_dhukkikenda/injection.dart';
 import 'package:sookshicha_dhukkikenda/presentation/bloc/app_bloc_observer.dart';
 import 'package:sookshicha_dhukkikenda/presentation/bloc/auth/auth_cubit.dart';
 import 'package:sookshicha_dhukkikenda/presentation/bloc/auth/auth_state.dart';
+import 'package:sookshicha_dhukkikenda/presentation/bloc/contracts/contracts_cubit.dart';
 import 'package:sookshicha_dhukkikenda/presentation/bloc/dashboard/dashboard_barrel.dart';
 import 'package:sookshicha_dhukkikenda/presentation/pages/auth/login_screen.dart';
 import 'package:sookshicha_dhukkikenda/presentation/pages/dashboard/dashboard_screen.dart';
@@ -63,8 +64,12 @@ class MyApp extends StatelessWidget {
               current is AuthInitial,
           builder: (context, state) {
             if (state is Authenticated) {
-              return BlocProvider(
-                create: (context) => sl<DashboardCubit>(),
+              return MultiBlocProvider(
+                providers: [
+                  BlocProvider(create: (context) => sl<DashboardCubit>()),
+                  // Provide ContractsCubit for contract actions (pin, delete, etc.)
+                  BlocProvider(create: (context) => sl<ContractsCubit>()),
+                ],
                 child: const DashboardScreen(),
               );
             }

@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../domain/entities/contract/contract.dart';
-import '../../../domain/entities/contract/contract_type.dart';
 import '../../../domain/entities/snapshot/monthly_snapshot.dart';
 import '../../../injection.dart';
 import '../../bloc/auth/auth_cubit.dart';
@@ -14,6 +13,7 @@ import '../../bloc/dashboard/dashboard_state.dart';
 import '../../theme/calm_theme.dart';
 import '../../widgets/amount_display.dart';
 import '../../widgets/calm_components.dart';
+import '../../widgets/contract_list_item.dart';
 import '../contracts/contracts_list_screen.dart';
 
 /// Dashboard Screen
@@ -473,66 +473,8 @@ class _PinnedContracts extends StatelessWidget {
             subtitle: 'Important commitments at a glance',
           ),
           ...contracts.map(
-            (contract) => _PinnedContractItem(contract: contract),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PinnedContractItem extends StatelessWidget {
-  const _PinnedContractItem({required this.contract});
-
-  final Contract contract;
-
-  @override
-  Widget build(BuildContext context) {
-    return CalmCard(
-      margin: const EdgeInsets.only(bottom: 12),
-      onTap: () {
-        // Navigate to detail? Or just show info
-      },
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: contract.type == ContractType.reducing
-                  ? CalmTheme.dangerLight
-                  : CalmTheme.successLight,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              contract.type == ContractType.reducing
-                  ? Icons.arrow_upward_rounded
-                  : Icons.arrow_downward_rounded,
-              size: 20,
-              color: contract.type == ContractType.reducing
-                  ? CalmTheme.danger
-                  : CalmTheme.success,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(contract.name, style: CalmTheme.textTheme.titleSmall),
-                Text(
-                  contract.type.displayName,
-                  style: CalmTheme.textTheme.bodySmall?.copyWith(
-                    color: CalmTheme.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          AmountDisplay(
-            amount: contract.monthlyAmount,
-            size: AmountSize.compact,
-            colorBased: false,
+            (contract) =>
+                ContractListItem(contract: contract, showPinIndicator: false),
           ),
         ],
       ),

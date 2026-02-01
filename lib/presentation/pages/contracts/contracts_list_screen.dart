@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_slidable/flutter_slidable.dart';
 
-import '../../../domain/entities/contract/contract.dart';
 import '../../../domain/entities/contract/contract_type.dart';
 import '../../../injection.dart';
 import '../../bloc/add_contract/add_contract_barrel.dart';
-import '../../bloc/contract_detail/contract_detail_barrel.dart';
 import '../../bloc/contracts/contracts_cubit.dart';
 import '../../bloc/contracts/contracts_state.dart';
 import '../../theme/calm_theme.dart';
-import '../../widgets/amount_display.dart';
 import '../../widgets/calm_components.dart';
-import '../contract_detail/contract_detail_screen.dart';
+import '../../widgets/contract_list_item.dart';
 import 'add_contract_screen.dart';
 
 /// Contracts List Screen - Simple, scannable list of all contracts
@@ -86,10 +82,7 @@ class _ContractsContent extends StatelessWidget {
           SliverToBoxAdapter(child: _FilterChips(state: state)),
           // Summary
           SliverToBoxAdapter(
-            child: _Summary(
-              total: openContracts.length,
-              outflow: state.totalMonthlyOutflow,
-            ),
+            child: _Summary(activeCount: openContracts.length),
           ),
           // Open Contracts List
           if (openContracts.isEmpty && closedContracts.isEmpty)
@@ -102,7 +95,8 @@ class _ContractsContent extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
-                    (context, i) => _ContractItem(contract: openContracts[i]),
+                    (context, i) =>
+                        ContractListItem(contract: openContracts[i]),
                     childCount: openContracts.length,
                   ),
                 ),
@@ -113,10 +107,11 @@ class _ContractsContent extends StatelessWidget {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
-                  child: SectionHeader(
-                    title: 'Closed',
-                    subtitle:
-                        '${closedContracts.length} ${closedContracts.length == 1 ? 'contract' : 'contracts'}',
+                  child: Text(
+                    'Closed (${closedContracts.length})',
+                    style: CalmTheme.textTheme.titleMedium?.copyWith(
+                      color: CalmTheme.textSecondary,
+                    ),
                   ),
                 ),
               ),
@@ -124,7 +119,7 @@ class _ContractsContent extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
-                    (context, i) => _ContractItem(
+                    (context, i) => ContractListItem(
                       contract: closedContracts[i],
                       isClosed: true,
                     ),
@@ -211,188 +206,17 @@ class _Chip extends StatelessWidget {
 }
 
 class _Summary extends StatelessWidget {
-  const _Summary({required this.total, required this.outflow});
-  final int total;
-  final double outflow;
+  const _Summary({required this.activeCount});
+  final int activeCount;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(24),
-      child: CalmCard(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('$total Active', style: CalmTheme.textTheme.titleMedium),
-            AmountDisplay(
-              amount: outflow,
-              size: AmountSize.medium,
-              colorBased: false,
-            ),
-          ],
-        ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Text(
+        'Active ($activeCount)',
+        style: CalmTheme.textTheme.titleMedium,
       ),
-    );
-  }
-}
-
-class _ContractItem extends StatelessWidget {
-  const _ContractItem({required this.contract, this.isClosed = false});
-  final Contract contract;
-  final bool isClosed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Opacity(
-        opacity: isClosed ? 0.6 : 1.0,
-        child: Slidable(
-          key: ValueKey(contract.id),
-          endActionPane: ActionPane(
-            motion: const ScrollMotion(),
-            extentRatio: 0.5,
-            children: [
-              SlidableAction(
-                onPressed: (_) => _onEdit(context),
-                backgroundColor: CalmTheme.primary,
-                foregroundColor: Colors.white,
-                icon: Icons.edit_rounded,
-                label: 'Edit',
-              ),
-              SlidableAction(
-                onPressed: (_) => _onDelete(context),
-                backgroundColor: CalmTheme.danger,
-                foregroundColor: Colors.white,
-                icon: Icons.delete_rounded,
-                label: 'Delete',
-              ),
-            ],
-          ),
-          child: CalmCard(
-            onTap: () => _navigateToDetail(context, contract),
-            child: Row(
-              children: [
-                _TypeIcon(type: contract.type, isClosed: isClosed),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              contract.name,
-                              style: CalmTheme.textTheme.titleMedium,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (contract.showOnDashboard)
-                            Icon(
-                              Icons.push_pin_rounded,
-                              size: 14,
-                              color: CalmTheme.primary.withValues(alpha: 0.7),
-                            ),
-                        ],
-                      ),
-                      Text(
-                        contract.type.displayName,
-                        style: CalmTheme.textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-                AmountDisplay(
-                  amount: contract.monthlyAmount,
-                  size: AmountSize.compact,
-                  colorBased: !isClosed,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _onEdit(BuildContext parentContext) {
-    Navigator.of(parentContext).push(
-      MaterialPageRoute(
-        builder: (_) => BlocProvider(
-          create: (context) => sl<AddContractCubit>(),
-          child: AddContractScreen(contract: contract),
-        ),
-      ),
-    );
-  }
-
-  void _onDelete(BuildContext parentContext) async {
-    final cubit = parentContext.read<ContractsCubit>();
-
-    final confirmed = await showDialog<bool>(
-      context: parentContext,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete Contract'),
-        content: Text('Are you sure you want to delete "${contract.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text('Cancel', style: TextStyle(color: CalmTheme.textMuted)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text('Delete', style: TextStyle(color: CalmTheme.danger)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      cubit.deleteContract(contract.id);
-    }
-  }
-
-  void _navigateToDetail(BuildContext context, Contract contract) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => MultiBlocProvider(
-          providers: [
-            BlocProvider(create: (context) => sl<ContractDetailCubit>()),
-          ],
-          child: ContractDetailScreen(contractId: contract.id),
-        ),
-      ),
-    );
-  }
-}
-
-class _TypeIcon extends StatelessWidget {
-  const _TypeIcon({required this.type, this.isClosed = false});
-  final ContractType type;
-  final bool isClosed;
-
-  @override
-  Widget build(BuildContext context) {
-    var (icon, color) = switch (type) {
-      ContractType.reducing => (Icons.trending_down, CalmTheme.danger),
-      ContractType.growing => (Icons.trending_up, CalmTheme.success),
-      ContractType.fixed => (Icons.horizontal_rule, CalmTheme.primary),
-    };
-
-    if (isClosed) {
-      color = CalmTheme.textMuted;
-    }
-
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Icon(icon, color: color),
     );
   }
 }

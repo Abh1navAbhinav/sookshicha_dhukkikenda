@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:intl/intl.dart';
@@ -25,8 +27,17 @@ class DashboardCubit extends Cubit<DashboardState> {
   final ContractRepository _contractRepository;
   final MonthlySnapshotRepository _snapshotRepository;
 
+  StreamSubscription<dynamic>? _contractsSubscription;
+
   /// Load all dashboard data
   Future<void> loadDashboard() async {
+    // Start watching if not already
+    _contractsSubscription ??= _contractRepository
+        .watchActiveContracts()
+        .listen(
+          (_) => loadDashboard(), // Re-load when contracts change
+        );
+
     emit(const DashboardLoading());
 
     try {
@@ -260,5 +271,11 @@ class DashboardCubit extends Cubit<DashboardState> {
   /// Refresh dashboard data
   Future<void> refresh() async {
     await loadDashboard();
+  }
+
+  @override
+  Future<void> close() {
+    _contractsSubscription?.cancel();
+    return super.close();
   }
 }

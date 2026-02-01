@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../domain/entities/contract/contract.dart';
 import '../../../domain/entities/contract/contract_status.dart';
 import '../../../domain/entities/contract/contract_type.dart';
 import '../../../domain/repositories/contract_repository.dart';
@@ -132,6 +133,20 @@ class ContractsCubit extends Cubit<ContractsState> {
   /// Delete a contract
   Future<void> deleteContract(String contractId) async {
     final result = await _contractRepository.deleteContract(contractId);
+    if (result.isLeft()) {
+      result.fold(
+        (failure) => emit(ContractsError(message: failure.message)),
+        (_) => null,
+      );
+    }
+  }
+
+  /// Toggle contract pin status
+  Future<void> togglePin(Contract contract) async {
+    final updatedContract = contract.copyWith(
+      showOnDashboard: !contract.showOnDashboard,
+    );
+    final result = await _contractRepository.updateContract(updatedContract);
     if (result.isLeft()) {
       result.fold(
         (failure) => emit(ContractsError(message: failure.message)),
