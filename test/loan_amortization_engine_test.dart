@@ -540,5 +540,47 @@ void main() {
         expect(summary.totalInterestPayable, closeTo(196420, 100));
       });
     });
+    group('Invariants', () {
+      test('should satisfy UI model invariants for every month', () {
+        final summary = engine.generateAmortizationSchedule(
+          principal: 100000,
+          annualInterestRate: 12.0,
+          tenureMonths: 12,
+          emi: 8884.88,
+          startDate: DateTime(2024, 1, 1),
+        );
+
+        final totalPayable = summary.totalAmountPayable;
+        final totalInterest = summary.totalInterestPayable;
+
+        for (final entry in summary.schedule) {
+          final principalPaidTillDate = entry.cumulativePrincipalPaid;
+          final interestPaidTillDate = entry.cumulativeInterestPaid;
+          final totalPaid = principalPaidTillDate + interestPaidTillDate;
+
+          final remainingPrincipal = entry.remainingBalance;
+          final remainingInterest = totalInterest - interestPaidTillDate;
+          final derivedRemainingBalance =
+              remainingPrincipal + remainingInterest;
+
+          // Invariant 1: Remaining Balance = Total Payable - Total Paid
+          final calculatedRemainingBalance = totalPayable - totalPaid;
+
+          expect(
+            derivedRemainingBalance,
+            closeTo(calculatedRemainingBalance, 0.1),
+            reason:
+                'Month ${entry.monthNumber}: Derived Balance != Calculated Balance',
+          );
+
+          // Invariant 2: Principal Paid + Remaining Principal = Total Principal (approx)
+          expect(
+            principalPaidTillDate + remainingPrincipal,
+            closeTo(summary.principal, 1.0), // Allow slight rounding drift
+            reason: 'Month ${entry.monthNumber}: Principal check failed',
+          );
+        }
+      });
+    });
   });
 }

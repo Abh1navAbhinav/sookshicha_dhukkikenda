@@ -39,6 +39,7 @@ class ContractDto {
     required this.monthlyAmount,
     required this.metadata,
     this.endDate,
+    this.showOnDashboard = false,
     this.description,
     this.tags,
     this.createdAt,
@@ -53,6 +54,7 @@ class ContractDto {
   final DateTime? endDate;
   final double monthlyAmount;
   final Map<String, dynamic> metadata;
+  final bool showOnDashboard;
   final String? description;
   final List<String>? tags;
   final DateTime? createdAt;
@@ -77,6 +79,7 @@ class ContractDto {
           : null,
       monthlyAmount: (data['monthlyAmount'] as num).toDouble(),
       metadata: data['metadata'] as Map<String, dynamic>,
+      showOnDashboard: data['showOnDashboard'] as bool? ?? false,
       description: data['description'] as String?,
       tags: (data['tags'] as List<dynamic>?)?.cast<String>(),
       createdAt: data['createdAt'] != null
@@ -103,6 +106,7 @@ class ContractDto {
           : null,
       monthlyAmount: (map['monthlyAmount'] as num).toDouble(),
       metadata: map['metadata'] as Map<String, dynamic>,
+      showOnDashboard: map['showOnDashboard'] as bool? ?? false,
       description: map['description'] as String?,
       tags: (map['tags'] as List<dynamic>?)?.cast<String>(),
       createdAt: map['createdAt'] != null
@@ -127,6 +131,7 @@ class ContractDto {
       endDate: contract.endDate,
       monthlyAmount: contract.monthlyAmount,
       metadata: contract.metadata.toJson(),
+      showOnDashboard: contract.showOnDashboard,
       description: contract.description,
       tags: contract.tags,
       createdAt: contract.createdAt,
@@ -145,6 +150,7 @@ class ContractDto {
       endDate: endDate,
       monthlyAmount: monthlyAmount,
       metadata: ContractMetadata.fromJson(metadata),
+      showOnDashboard: showOnDashboard,
       description: description,
       tags: tags,
       createdAt: createdAt,
@@ -164,6 +170,7 @@ class ContractDto {
       'startDate': Timestamp.fromDate(startDate),
       'monthlyAmount': monthlyAmount,
       'metadata': metadata,
+      'showOnDashboard': showOnDashboard,
     };
 
     if (endDate != null) {

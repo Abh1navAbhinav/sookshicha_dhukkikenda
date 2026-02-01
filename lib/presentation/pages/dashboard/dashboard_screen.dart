@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
+import '../../../domain/entities/contract/contract.dart';
+import '../../../domain/entities/contract/contract_type.dart';
+import '../../../domain/entities/snapshot/monthly_snapshot.dart';
 import '../../../injection.dart';
 import '../../bloc/auth/auth_cubit.dart';
 import '../../bloc/contracts/contracts_barrel.dart';
@@ -13,17 +18,7 @@ import '../contracts/contracts_list_screen.dart';
 
 /// Dashboard Screen
 ///
-/// The main financial overview screen.
-///
-/// ## One Main Message
-/// "Here's what you have left this month."
-/// Everything else is secondary context.
-///
-/// ## Information Hierarchy
-/// 1. **Free Balance** (HERO) - The one number that matters most
-/// 2. **Income & Outflow** (Context) - How we got to free balance
-/// 3. **Next 3 Months** (Forecast) - Quick look ahead
-/// 4. **Active Contracts** (Action) - Link to manage contracts
+/// Improved financial overview with charts and insights.
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -71,40 +66,42 @@ class _DashboardContent extends StatelessWidget {
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          // App Bar with month
+          // Header
           SliverToBoxAdapter(
             child: _DashboardHeader(monthDisplay: state.monthDisplay),
           ),
 
-          // Hero: Free Balance
+          // Total Investment & Pending Debt (Primary Metrics)
           SliverToBoxAdapter(
-            child: _FreeBalanceHero(
-              freeBalance: state.freeBalance,
-              isDeficit: state.isDeficit,
-              healthStatus: state.healthStatus,
+            child: _FinancialHighLevelSummary(
+              totalInvestment: state.totalInvestment,
+              totalPendingDebt: state.totalPendingDebt,
             ),
           ),
 
-          SliverToBoxAdapter(
-            child: _IncomeOutflowSummary(
-              income: state.income,
-              outflow: state.mandatoryOutflow,
-              wealth: state.wealth,
-              growingContractsCount: state.growingContractsCount,
-              reducingContractsCount: state.reducingContractsCount,
+          // Chart Section
+          if (state.chartProjections.isNotEmpty)
+            SliverToBoxAdapter(
+              child: _DebtIncomeChart(projections: state.chartProjections),
             ),
-          ),
 
-          // Next 3 Months Preview
-          SliverToBoxAdapter(
-            child: _MonthsPreview(snapshots: state.nextThreeMonths),
-          ),
+          // Insights Section
+          if (state.financialInsights.isNotEmpty)
+            SliverToBoxAdapter(
+              child: _FinancialInsights(insights: state.financialInsights),
+            ),
 
-          // Contracts Summary
+          // Pinned Contracts Section
+          if (state.pinnedContracts.isNotEmpty)
+            SliverToBoxAdapter(
+              child: _PinnedContracts(contracts: state.pinnedContracts),
+            ),
+
+          // All Contracts Link
           SliverToBoxAdapter(
-            child: _ContractsSummary(
+            child: _ContractsLink(
               activeCount: state.activeContractsCount,
-              upcomingContracts: state.upcomingContracts,
+              upcomingContractsCount: state.upcomingContracts.length,
             ),
           ),
 
@@ -118,7 +115,6 @@ class _DashboardContent extends StatelessWidget {
   }
 }
 
-/// Dashboard Header
 class _DashboardHeader extends StatelessWidget {
   const _DashboardHeader({required this.monthDisplay});
 
@@ -154,380 +150,439 @@ class _DashboardHeader extends StatelessWidget {
   }
 }
 
-/// Hero: Free Balance
-///
-/// The most important number on the dashboard.
-/// Large, color-coded, impossible to miss.
-class _FreeBalanceHero extends StatelessWidget {
-  const _FreeBalanceHero({
-    required this.freeBalance,
-    required this.isDeficit,
-    required this.healthStatus,
+class _FinancialHighLevelSummary extends StatelessWidget {
+  const _FinancialHighLevelSummary({
+    required this.totalInvestment,
+    required this.totalPendingDebt,
   });
 
-  final double freeBalance;
-  final bool isDeficit;
-  final DashboardHealthStatus healthStatus;
+  final double totalInvestment;
+  final double totalPendingDebt;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: CalmCard(
+              backgroundColor: CalmTheme.successLight.withValues(alpha: 0.3),
+              borderColor: CalmTheme.success.withValues(alpha: 0.1),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'TOTAL INVESTMENT',
+                    style: CalmTheme.textTheme.labelSmall?.copyWith(
+                      color: CalmTheme.success,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _CompactInteractiveAmount(
+                    amount: totalInvestment,
+                    label: 'Total Investment',
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: CalmCard(
+              backgroundColor: CalmTheme.dangerLight.withValues(alpha: 0.3),
+              borderColor: CalmTheme.danger.withValues(alpha: 0.1),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'PENDING DEBT',
+                    style: CalmTheme.textTheme.labelSmall?.copyWith(
+                      color: CalmTheme.danger,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _CompactInteractiveAmount(
+                    amount: totalPendingDebt,
+                    label: 'Pending Debt',
+                    colorBased: false,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactInteractiveAmount extends StatelessWidget {
+  const _CompactInteractiveAmount({
+    required this.amount,
+    required this.label,
+    this.colorBased = true,
+  });
+
+  final double amount;
+  final String label;
+  final bool colorBased;
+
+  String _formatCompact(double value) {
+    if (value == 0) return '₹0';
+    final absValue = value.abs();
+
+    if (absValue >= 1000000000) {
+      return '₹${(absValue / 1000000000).toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')}B';
+    } else if (absValue >= 1000000) {
+      return '₹${(absValue / 1000000).toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')}M';
+    } else if (absValue >= 1000) {
+      return '₹${(absValue / 1000).toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')}k';
+    }
+
+    return NumberFormat.currency(symbol: '₹', decimalDigits: 0).format(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final formatted = _formatCompact(amount);
+    final color = colorBased ? CalmTheme.getBalanceColor(amount) : null;
+
+    return InkWell(
+      onTap: () => _showFullAmount(context),
+      borderRadius: BorderRadius.circular(4),
+      child: Text(
+        formatted,
+        style: CalmTheme.textTheme.displaySmall!.copyWith(color: color),
+      ),
+    );
+  }
+
+  void _showFullAmount(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: CalmTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: CalmTheme.textTheme.titleMedium?.copyWith(
+                  color: CalmTheme.textMuted,
+                ),
+              ),
+              const SizedBox(height: 16),
+              AmountDisplay(
+                amount: amount,
+                size: AmountSize.hero,
+                colorBased: colorBased,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: CalmTheme.primary,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Dismiss'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DebtIncomeChart extends StatelessWidget {
+  const _DebtIncomeChart({required this.projections});
+
+  final List<MonthlySnapshot> projections;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(
+            title: 'Forecast',
+            subtitle: 'Net Worth Projection (12 Months)',
+          ),
+          CalmCard(
+            padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
+            child: SizedBox(
+              height: 220,
+              child: SfCartesianChart(
+                margin: EdgeInsets.zero,
+                plotAreaBorderWidth: 0,
+                legend: Legend(
+                  isVisible: true,
+                  position: LegendPosition.bottom,
+                  textStyle: CalmTheme.textTheme.bodySmall,
+                  iconHeight: 12,
+                  iconWidth: 12,
+                ),
+                primaryXAxis: CategoryAxis(
+                  majorGridLines: const MajorGridLines(width: 0),
+                  labelStyle: CalmTheme.textTheme.bodySmall,
+                  axisLine: const AxisLine(width: 0),
+                  majorTickLines: const MajorTickLines(size: 0),
+                ),
+                primaryYAxis: NumericAxis(
+                  isVisible: true,
+                  majorGridLines: MajorGridLines(
+                    width: 1,
+                    dashArray: [5, 5],
+                    color: CalmTheme.textMuted.withValues(alpha: 0.2),
+                  ),
+                  axisLine: const AxisLine(width: 0),
+                  labelStyle: CalmTheme.textTheme.bodySmall?.copyWith(
+                    color: CalmTheme.textMuted,
+                    fontSize: 10,
+                  ),
+                  majorTickLines: const MajorTickLines(size: 0),
+                  numberFormat: NumberFormat.compact(locale: 'en_IN'),
+                ),
+                tooltipBehavior: TooltipBehavior(
+                  enable: true,
+                  header: '',
+                  canShowMarker: false,
+                  format: 'point.x : point.y',
+                  textStyle: CalmTheme.textTheme.bodySmall?.copyWith(
+                    color: Colors.white,
+                  ),
+                ),
+                series: <CartesianSeries<MonthlySnapshot, String>>[
+                  ColumnSeries<MonthlySnapshot, String>(
+                    dataSource: projections,
+                    xValueMapper: (MonthlySnapshot s, _) =>
+                        s.monthName.substring(0, 3),
+                    yValueMapper: (MonthlySnapshot s, _) => s.totalWealth,
+                    name: 'Total Wealth',
+                    color: CalmTheme.success,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(4),
+                    ),
+                    width: 0.6,
+                    spacing: 0.2,
+                  ),
+                  ColumnSeries<MonthlySnapshot, String>(
+                    dataSource: projections,
+                    xValueMapper: (MonthlySnapshot s, _) =>
+                        s.monthName.substring(0, 3),
+                    yValueMapper: (MonthlySnapshot s, _) => s.totalDebt,
+                    name: 'Remaining Debt',
+                    color: CalmTheme.danger,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(4),
+                    ),
+                    width: 0.6,
+                    spacing: 0.2,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FinancialInsights extends StatelessWidget {
+  const _FinancialInsights({required this.insights});
+
+  final List<String> insights;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(title: 'Review & Insights'),
+          CalmCard(
+            backgroundColor: CalmTheme.primaryLight.withValues(alpha: 0.2),
+            child: Column(
+              children: insights.map((insight) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.auto_awesome,
+                        size: 18,
+                        color: CalmTheme.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          insight,
+                          style: CalmTheme.textTheme.bodyMedium?.copyWith(
+                            color: CalmTheme.textPrimary,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PinnedContracts extends StatelessWidget {
+  const _PinnedContracts({required this.contracts});
+
+  final List<Contract> contracts;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(
+            title: 'Pinned Contracts',
+            subtitle: 'Important commitments at a glance',
+          ),
+          ...contracts.map(
+            (contract) => _PinnedContractItem(contract: contract),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PinnedContractItem extends StatelessWidget {
+  const _PinnedContractItem({required this.contract});
+
+  final Contract contract;
+
+  @override
+  Widget build(BuildContext context) {
+    return CalmCard(
+      margin: const EdgeInsets.only(bottom: 12),
+      onTap: () {
+        // Navigate to detail? Or just show info
+      },
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: contract.type == ContractType.reducing
+                  ? CalmTheme.dangerLight
+                  : CalmTheme.successLight,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              contract.type == ContractType.reducing
+                  ? Icons.arrow_upward_rounded
+                  : Icons.arrow_downward_rounded,
+              size: 20,
+              color: contract.type == ContractType.reducing
+                  ? CalmTheme.danger
+                  : CalmTheme.success,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(contract.name, style: CalmTheme.textTheme.titleSmall),
+                Text(
+                  contract.type.displayName,
+                  style: CalmTheme.textTheme.bodySmall?.copyWith(
+                    color: CalmTheme.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          AmountDisplay(
+            amount: contract.monthlyAmount,
+            size: AmountSize.compact,
+            colorBased: false,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContractsLink extends StatelessWidget {
+  const _ContractsLink({
+    required this.activeCount,
+    required this.upcomingContractsCount,
+  });
+
+  final int activeCount;
+  final int upcomingContractsCount;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: CalmCard(
-        backgroundColor: CalmTheme.getBalanceBackgroundColor(freeBalance),
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        onTap: () => _navigateToContracts(context),
+        child: Row(
           children: [
-            // Label
-            Text(
-              'Free Balance',
-              style: CalmTheme.textTheme.labelLarge?.copyWith(
-                color: CalmTheme.textMuted,
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: CalmTheme.primaryLight,
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: Icon(Icons.description_outlined, color: CalmTheme.primary),
             ),
-            const SizedBox(height: 8),
-
-            // Amount (HERO)
-            AmountDisplay(
-              amount: freeBalance,
-              size: AmountSize.hero,
-              colorBased: true,
-            ),
-
-            const SizedBox(height: 16),
-
-            // Health indicator
-            _HealthIndicator(status: healthStatus),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Health Indicator
-class _HealthIndicator extends StatelessWidget {
-  const _HealthIndicator({required this.status});
-
-  final DashboardHealthStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final (message, color) = switch (status) {
-      DashboardHealthStatus.excellent => (
-        'Excellent savings rate',
-        CalmTheme.success,
-      ),
-      DashboardHealthStatus.good => (
-        'Good financial health',
-        CalmTheme.success,
-      ),
-      DashboardHealthStatus.fair => ('Room for improvement', CalmTheme.warning),
-      DashboardHealthStatus.caution => (
-        'Consider reducing expenses',
-        CalmTheme.warning,
-      ),
-      DashboardHealthStatus.critical => (
-        'Spending exceeds income',
-        CalmTheme.danger,
-      ),
-    };
-
-    return Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          message,
-          style: CalmTheme.textTheme.bodySmall?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _IncomeOutflowSummary extends StatelessWidget {
-  const _IncomeOutflowSummary({
-    required this.income,
-    required this.outflow,
-    required this.wealth,
-    this.growingContractsCount = 0,
-    this.reducingContractsCount = 0,
-  });
-
-  final double income;
-  final double outflow;
-  final double wealth;
-  final int growingContractsCount;
-  final int reducingContractsCount;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _SummaryItem(
-                  label: 'Income',
-                  amount: income,
-                  icon: Icons.arrow_downward_rounded,
-                  iconColor: CalmTheme.successMuted,
-                  contractCount: growingContractsCount,
-                  contractLabel: 'Growing',
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _SummaryItem(
-                  label: 'Mandatory',
-                  amount: outflow,
-                  icon: Icons.arrow_upward_rounded,
-                  iconColor: CalmTheme.dangerMuted,
-                  isOutflow: true,
-                  contractCount: reducingContractsCount,
-                  contractLabel: 'Reducing',
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _SummaryItem(
-            label: 'Total Wealth (Investments)',
-            amount: wealth,
-            icon: Icons.account_balance_wallet_outlined,
-            iconColor: CalmTheme.primary,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryItem extends StatelessWidget {
-  const _SummaryItem({
-    required this.label,
-    required this.amount,
-    required this.icon,
-    required this.iconColor,
-    this.isOutflow = false,
-    this.contractCount,
-    this.contractLabel,
-  });
-
-  final String label;
-  final double amount;
-  final IconData icon;
-  final Color iconColor;
-  final bool isOutflow;
-  final int? contractCount;
-  final String? contractLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return CalmCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: iconColor),
-              const SizedBox(width: 8),
-              Text(label, style: CalmTheme.textTheme.labelMedium),
-            ],
-          ),
-          const SizedBox(height: 12),
-          AmountDisplay(
-            amount: isOutflow ? -amount : amount,
-            size: AmountSize.small,
-            colorBased: false,
-          ),
-          if (contractCount != null && contractLabel != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              '$contractCount $contractLabel',
-              style: CalmTheme.textTheme.bodySmall?.copyWith(
-                color: CalmTheme.textMuted,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// Next 3 Months Preview
-class _MonthsPreview extends StatelessWidget {
-  const _MonthsPreview({required this.snapshots});
-
-  final List<dynamic> snapshots;
-
-  @override
-  Widget build(BuildContext context) {
-    if (snapshots.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SectionHeader(
-            title: 'Looking Ahead',
-            subtitle: 'Next 3 months projection',
-          ),
-          CalmCard(
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                for (var i = 0; i < snapshots.length; i++) ...[
-                  _MonthPreviewItem(
-                    snapshot: snapshots[i],
-                    isLast: i == snapshots.length - 1,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Manage All Contracts',
+                    style: CalmTheme.textTheme.titleMedium,
+                  ),
+                  Text(
+                    '$activeCount Active • $upcomingContractsCount Expiring Soon',
+                    style: CalmTheme.textTheme.bodySmall?.copyWith(
+                      color: CalmTheme.textMuted,
+                    ),
                   ),
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MonthPreviewItem extends StatelessWidget {
-  const _MonthPreviewItem({required this.snapshot, this.isLast = false});
-
-  final dynamic snapshot;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    // Handle both actual snapshots and placeholders
-    final month = snapshot.month as int;
-    final year = snapshot.year as int;
-    final monthName = _getMonthName(month);
-
-    // Try to get freeBalance, default to 0
-    double freeBalance = 0;
-    try {
-      freeBalance = (snapshot.freeBalance as num?)?.toDouble() ?? 0;
-    } catch (_) {
-      freeBalance = 0;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: BoxDecoration(
-        border: isLast
-            ? null
-            : Border(bottom: BorderSide(color: CalmTheme.divider, width: 1)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text('$monthName $year', style: CalmTheme.textTheme.bodyLarge),
-          AmountDisplay(
-            amount: freeBalance,
-            size: AmountSize.compact,
-            colorBased: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _getMonthName(int month) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return months[month - 1];
-  }
-}
-
-/// Contracts Summary
-class _ContractsSummary extends StatelessWidget {
-  const _ContractsSummary({
-    required this.activeCount,
-    required this.upcomingContracts,
-  });
-
-  final int activeCount;
-  final List<dynamic> upcomingContracts;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            title: 'Contracts',
-            actionLabel: 'View All',
-            onAction: () => _navigateToContracts(context),
-          ),
-          CalmCard(
-            onTap: () => _navigateToContracts(context),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: CalmTheme.primaryLight,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.description_outlined,
-                    color: CalmTheme.primary,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '$activeCount Active',
-                        style: CalmTheme.textTheme.titleMedium,
-                      ),
-                      if (upcomingContracts.isNotEmpty)
-                        Text(
-                          '${upcomingContracts.length} expiring soon',
-                          style: CalmTheme.textTheme.bodySmall?.copyWith(
-                            color: CalmTheme.warning,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.chevron_right, color: CalmTheme.textMuted),
-              ],
-            ),
-          ),
-        ],
+            Icon(Icons.chevron_right, color: CalmTheme.textMuted),
+          ],
+        ),
       ),
     );
   }
@@ -544,7 +599,6 @@ class _ContractsSummary extends StatelessWidget {
   }
 }
 
-/// Dashboard Error State
 class _DashboardError extends StatelessWidget {
   const _DashboardError({required this.state});
 

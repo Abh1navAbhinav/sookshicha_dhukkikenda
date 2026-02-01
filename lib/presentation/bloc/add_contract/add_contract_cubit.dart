@@ -25,6 +25,7 @@ class AddContractCubit extends Cubit<AddContractState> {
     required DateTime startDate,
     DateTime? endDate,
     String? description,
+    bool showOnDashboard = false,
     required ContractMetadata metadata,
   }) async {
     emit(const AddContractSubmitting());
@@ -38,6 +39,7 @@ class AddContractCubit extends Cubit<AddContractState> {
       endDate: endDate,
       monthlyAmount: monthlyAmount,
       metadata: metadata,
+      showOnDashboard: showOnDashboard,
       description: description,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
@@ -68,6 +70,7 @@ class AddContractCubit extends Cubit<AddContractState> {
     required DateTime startDate,
     DateTime? endDate,
     String? description,
+    bool? showOnDashboard,
     required ContractMetadata metadata,
   }) async {
     emit(const AddContractSubmitting());
@@ -79,6 +82,7 @@ class AddContractCubit extends Cubit<AddContractState> {
       endDate: endDate,
       monthlyAmount: monthlyAmount,
       metadata: metadata,
+      showOnDashboard: showOnDashboard,
       description: description,
       updatedAt: DateTime.now(),
     );

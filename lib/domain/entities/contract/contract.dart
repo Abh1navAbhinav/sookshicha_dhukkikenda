@@ -48,6 +48,7 @@ final class Contract extends Equatable {
     required this.startDate,
     required this.monthlyAmount,
     required this.metadata,
+    this.showOnDashboard = false,
     this.endDate,
     this.description,
     this.tags,
@@ -83,6 +84,9 @@ final class Contract extends Equatable {
   /// Type-specific metadata containing additional contract details
   /// Uses sealed classes for type safety
   final ContractMetadata metadata;
+
+  /// Whether to pin this contract to the dashboard
+  final bool showOnDashboard;
 
   /// Optional description for additional context
   final String? description;
@@ -177,6 +181,7 @@ final class Contract extends Equatable {
     DateTime? endDate,
     double? monthlyAmount,
     ContractMetadata? metadata,
+    bool? showOnDashboard,
     String? description,
     List<String>? tags,
     DateTime? createdAt,
@@ -191,6 +196,7 @@ final class Contract extends Equatable {
       endDate: endDate ?? this.endDate,
       monthlyAmount: monthlyAmount ?? this.monthlyAmount,
       metadata: metadata ?? this.metadata,
+      showOnDashboard: showOnDashboard ?? this.showOnDashboard,
       description: description ?? this.description,
       tags: tags ?? this.tags,
       createdAt: createdAt ?? this.createdAt,
@@ -209,6 +215,7 @@ final class Contract extends Equatable {
       'endDate': endDate?.toIso8601String(),
       'monthlyAmount': monthlyAmount,
       'metadata': metadata.toJson(),
+      'showOnDashboard': showOnDashboard,
       'description': description,
       'tags': tags,
       'createdAt': createdAt?.toIso8601String(),
@@ -231,6 +238,7 @@ final class Contract extends Equatable {
       metadata: ContractMetadata.fromJson(
         json['metadata'] as Map<String, dynamic>,
       ),
+      showOnDashboard: json['showOnDashboard'] as bool? ?? false,
       description: json['description'] as String?,
       tags: (json['tags'] as List<dynamic>?)?.map((e) => e as String).toList(),
       createdAt: json['createdAt'] != null
@@ -257,6 +265,7 @@ final class Contract extends Equatable {
     endDate,
     monthlyAmount,
     metadata,
+    showOnDashboard,
     description,
     tags,
     createdAt,

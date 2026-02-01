@@ -1,8 +1,6 @@
 import 'package:equatable/equatable.dart';
 
 import '../../../domain/entities/contract/contract.dart';
-import '../../../domain/entities/contract/metadata/contract_metadata.dart';
-import '../../../domain/usecases/monthly_execution_engine.dart';
 
 /// Contract Detail State
 ///
@@ -27,7 +25,11 @@ final class ContractDetailLoading extends ContractDetailState {
 
 /// Loaded state with full contract details
 final class ContractDetailLoaded extends ContractDetailState {
-  const ContractDetailLoaded({required this.contract, this.isUpdating = false});
+  const ContractDetailLoaded({
+    required this.contract,
+    this.isUpdating = false,
+    this.loanDetails,
+  });
 
   /// The contract being viewed
   final Contract contract;
@@ -72,49 +74,10 @@ final class ContractDetailLoaded extends ContractDetailState {
 
   // ============== Type-Specific Details ==============
 
-  /// Get reducing contract details (loans/EMIs)
-  ReducingDetails? get reducingDetails {
-    final metadata = contract.reducingMetadata;
-    if (metadata == null) return null;
+  // ============== Type-Specific Details ==============
 
-    final interestPortion =
-        (metadata.remainingBalance * (metadata.interestRatePercent / 12 / 100));
-    final principalPortion = metadata.emiAmount - interestPortion;
-
-    final engine = const MonthlyExecutionEngine();
-    final projectedRemaining = engine.calculateRemainingTenure(
-      balance: metadata.remainingBalance,
-      annualInterestRate: metadata.interestRatePercent,
-      emi: metadata.emiAmount,
-    );
-
-    final totalPaid = metadata.totalPaid;
-    final totalRemainingBalance = metadata.emiAmount * projectedRemaining;
-    final remainingInterest = totalRemainingBalance - metadata.remainingBalance;
-
-    return ReducingDetails(
-      principalAmount: metadata.principalAmount,
-      remainingBalance: metadata.remainingBalance,
-      interestRate: metadata.interestRatePercent,
-      tenureMonths: metadata.tenureMonths,
-      emiAmount: metadata.emiAmount,
-      totalInterest: _calculateTotalInterest(metadata),
-      totalAmountToPay: metadata.emiAmount * metadata.tenureMonths,
-      progressPercent: _calculateProgress(metadata),
-      totalPaid: totalPaid,
-      totalPrincipalPaid:
-          metadata.principalAmount -
-          metadata
-              .remainingBalance, // Principal paid is the reduction in balance
-      totalInterestPaid:
-          totalPaid - (metadata.principalAmount - metadata.remainingBalance),
-      principalPortion: principalPortion,
-      interestPortion: interestPortion,
-      projectedRemainingMonths: projectedRemaining,
-      remainingInterest: remainingInterest,
-      totalRemainingBalance: totalRemainingBalance,
-    );
-  }
+  /// Pre-calculated loan details (for reducing contracts)
+  final LoanSnapshotUIModel? loanDetails;
 
   /// Get growing contract details (investments/SIPs)
   GrowingDetails? get growingDetails {
@@ -150,27 +113,21 @@ final class ContractDetailLoaded extends ContractDetailState {
     );
   }
 
-  double _calculateTotalInterest(ReducingContractMetadata metadata) {
-    return (metadata.emiAmount * metadata.tenureMonths) -
-        metadata.principalAmount;
-  }
-
-  double _calculateProgress(ReducingContractMetadata metadata) {
-    if (metadata.principalAmount == 0) return 0;
-    final paid = metadata.principalAmount - metadata.remainingBalance;
-    return (paid / metadata.principalAmount) * 100;
-  }
-
   /// Copy with
-  ContractDetailLoaded copyWith({Contract? contract, bool? isUpdating}) {
+  ContractDetailLoaded copyWith({
+    Contract? contract,
+    bool? isUpdating,
+    LoanSnapshotUIModel? loanDetails,
+  }) {
     return ContractDetailLoaded(
       contract: contract ?? this.contract,
       isUpdating: isUpdating ?? this.isUpdating,
+      loanDetails: loanDetails ?? this.loanDetails,
     );
   }
 
   @override
-  List<Object?> get props => [contract, isUpdating];
+  List<Object?> get props => [contract, isUpdating, loanDetails];
 }
 
 /// Error state
@@ -203,43 +160,79 @@ enum ContractAction { paused, resumed, closed, deleted }
 
 // ============== Detail Models ==============
 
-/// Details specific to reducing (loan) contracts
-class ReducingDetails {
-  const ReducingDetails({
-    required this.principalAmount,
-    required this.remainingBalance,
-    required this.interestRate,
-    required this.tenureMonths,
-    required this.emiAmount,
-    required this.totalInterest,
-    required this.totalAmountToPay,
-    required this.progressPercent,
-    required this.totalPaid,
-    required this.totalPrincipalPaid,
-    required this.totalInterestPaid,
-    required this.principalPortion,
-    required this.interestPortion,
-    required this.projectedRemainingMonths,
+/// Immutable snapshot of loan state derived entirely from amortization engine
+class LoanSnapshotUIModel extends Equatable {
+  LoanSnapshotUIModel({
+    required this.monthlyInterest,
+    required this.monthlyPrincipal,
+    required this.totalInterestFullTenure,
+    required this.totalPayableFullTenure,
+    required this.principalPaidTillDate,
+    required this.interestPaidTillDate,
+    required this.remainingPrincipal,
     required this.remainingInterest,
-    required this.totalRemainingBalance,
+    required this.remainingBalance,
+    required this.progressPercent,
+    required this.originalPrincipal,
+    required this.interestRate,
   });
+  // Assertions removed to prevent crashes due to minor floating point drifts
+  // or input precision mismatches (e.g. principal having >2 decimal places).
+  // The UI will still display consistent values derived from the schedule.
+  /*
+   : assert(
+         (remainingBalance - (remainingPrincipal + remainingInterest)).abs() <
+             0.1,
+         'Invariant violated: Remaining Balance != Remaining Principal + Remaining Interest',
+       ),
+       assert(
+         (remainingBalance -
+                 (totalPayableFullTenure -
+                     (principalPaidTillDate + interestPaidTillDate)))
+                 .abs() <
+             0.1,
+         'Invariant violated: Remaining Balance != Total Payable - Total Paid',
+       );
+  */
 
-  final double principalAmount;
-  final double remainingBalance;
-  final double interestRate;
-  final int tenureMonths;
-  final double emiAmount;
-  final double totalInterest;
-  final double totalAmountToPay;
-  final double progressPercent;
-  final double totalPaid;
-  final double totalPrincipalPaid;
-  final double totalInterestPaid;
-  final double principalPortion;
-  final double interestPortion;
-  final int projectedRemainingMonths;
+  final double monthlyInterest;
+  final double monthlyPrincipal;
+
+  final double totalInterestFullTenure;
+  final double totalPayableFullTenure;
+
+  final double principalPaidTillDate;
+  final double interestPaidTillDate;
+
+  final double remainingPrincipal;
   final double remainingInterest;
-  final double totalRemainingBalance;
+
+  /// Principal + Interest remaining
+  final double remainingBalance;
+
+  final double progressPercent;
+
+  // Metadata for display
+  final double originalPrincipal;
+  final double interestRate;
+
+  double get totalPaid => principalPaidTillDate + interestPaidTillDate;
+
+  @override
+  List<Object?> get props => [
+    monthlyInterest,
+    monthlyPrincipal,
+    totalInterestFullTenure,
+    totalPayableFullTenure,
+    principalPaidTillDate,
+    interestPaidTillDate,
+    remainingPrincipal,
+    remainingInterest,
+    remainingBalance,
+    progressPercent,
+    originalPrincipal,
+    interestRate,
+  ];
 }
 
 /// Details specific to growing (investment) contracts

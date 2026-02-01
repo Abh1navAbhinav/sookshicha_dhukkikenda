@@ -80,7 +80,7 @@ class _DetailContent extends StatelessWidget {
         CustomScrollView(
           slivers: [
             // Back button & title
-            SliverToBoxAdapter(child: _Header(name: state.name)),
+            SliverToBoxAdapter(child: _Header(state: state)),
             // Status & Type
             SliverToBoxAdapter(child: _StatusRow(state: state)),
             // Amount Card
@@ -107,8 +107,10 @@ class _DetailContent extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.name});
-  final String name;
+  const _Header({required this.state});
+  final ContractDetailLoaded state;
+
+  String get name => state.name;
 
   @override
   Widget build(BuildContext context) {
@@ -128,6 +130,19 @@ class _Header extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
+          ),
+          IconButton(
+            icon: Icon(
+              state.contract.showOnDashboard
+                  ? Icons.push_pin_rounded
+                  : Icons.push_pin_outlined,
+              color: state.contract.showOnDashboard
+                  ? CalmTheme.primary
+                  : CalmTheme.textMuted,
+            ),
+            tooltip: 'Show on Dashboard',
+            onPressed: () =>
+                context.read<ContractDetailCubit>().toggleShowOnDashboard(),
           ),
         ],
       ),
@@ -274,18 +289,19 @@ class _TypeDetails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Reducing (Loan) details
-    if (state.reducingDetails != null) {
-      final d = state.reducingDetails!;
+    // Reducing (Loan) details
+    if (state.loanDetails != null) {
+      final d = state.loanDetails!;
       return _DetailsCard(
         title: 'Loan Details',
         progress: d.progressPercent / 100,
         extra: Column(
           children: [
             const Divider(height: 32),
-            _DetailRow('Monthly Interest', _formatCurrency(d.interestPortion)),
+            _DetailRow('Monthly Interest', _formatCurrency(d.monthlyInterest)),
             _DetailRow(
               'Monthly Principal',
-              _formatCurrency(d.principalPortion),
+              _formatCurrency(d.monthlyPrincipal),
             ),
             Text(
               'This month\'s split',
@@ -298,16 +314,16 @@ class _TypeDetails extends StatelessWidget {
         children: [
           _ExpandableDetailRow(
             label: 'Total Payable',
-            value: _formatCurrency(d.totalAmountToPay),
+            value: _formatCurrency(d.totalPayableFullTenure),
             children: [
               _DetailRow(
                 'Original Principal',
-                _formatCurrency(d.principalAmount),
+                _formatCurrency(d.originalPrincipal),
                 isSubItem: true,
               ),
               _DetailRow(
                 'Total Interest',
-                _formatCurrency(d.totalInterest),
+                _formatCurrency(d.totalInterestFullTenure),
                 isSubItem: true,
               ),
             ],
@@ -318,23 +334,23 @@ class _TypeDetails extends StatelessWidget {
             children: [
               _DetailRow(
                 'Principal Paid',
-                _formatCurrency(d.totalPrincipalPaid),
+                _formatCurrency(d.principalPaidTillDate),
                 isSubItem: true,
               ),
               _DetailRow(
                 'Interest Paid',
-                _formatCurrency(d.totalInterestPaid),
+                _formatCurrency(d.interestPaidTillDate),
                 isSubItem: true,
               ),
             ],
           ),
           _ExpandableDetailRow(
             label: 'Remaining Balance',
-            value: _formatCurrency(d.totalRemainingBalance),
+            value: _formatCurrency(d.remainingBalance),
             children: [
               _DetailRow(
                 'Remaining Principal',
-                _formatCurrency(d.remainingBalance),
+                _formatCurrency(d.remainingPrincipal),
                 isSubItem: true,
               ),
               _DetailRow(
@@ -521,9 +537,8 @@ class _TimelineInfo extends StatelessWidget {
     int monthsLeft = state.monthsRemaining ?? 0;
 
     if (state.contract.type == ContractType.reducing) {
-      final rd = state.reducingDetails;
-      if (rd != null) {
-        monthsLeft = rd.projectedRemainingMonths;
+      if (state.monthsRemaining != null) {
+        monthsLeft = state.monthsRemaining!;
         // Project logical end date from current month + remaining months
         final now = DateTime.now();
         endDate = DateTime(now.year, now.month + monthsLeft);
@@ -655,7 +670,7 @@ class _PrepaymentActions extends StatelessWidget {
   }
 
   void _showSettleDialog(BuildContext context) {
-    final balance = state.reducingDetails?.remainingBalance ?? 0;
+    final balance = state.loanDetails?.remainingBalance ?? 0;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

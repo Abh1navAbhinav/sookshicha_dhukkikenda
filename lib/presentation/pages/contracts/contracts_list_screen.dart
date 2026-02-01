@@ -279,9 +279,23 @@ class _ContractItem extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        contract.name,
-                        style: CalmTheme.textTheme.titleMedium,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              contract.name,
+                              style: CalmTheme.textTheme.titleMedium,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (contract.showOnDashboard)
+                            Icon(
+                              Icons.push_pin_rounded,
+                              size: 14,
+                              color: CalmTheme.primary.withValues(alpha: 0.7),
+                            ),
+                        ],
                       ),
                       Text(
                         contract.type.displayName,

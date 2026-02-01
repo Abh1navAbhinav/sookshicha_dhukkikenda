@@ -188,6 +188,7 @@ class MonthlyExecutionEngine {
     double growingOutflow = 0.0;
     double fixedOutflow = 0.0;
     double totalWealth = 0.0;
+    double totalDebt = 0.0;
 
     for (final contract in activeContracts) {
       final contribution = _processContract(contract, targetDate);
@@ -195,13 +196,41 @@ class MonthlyExecutionEngine {
       switch (contract.type) {
         case ContractType.reducing:
           reducingOutflow += contribution.amount;
+
+          // Calculate total remaining payable (Principal + Interest)
+          // to match Dashboard's "Pending Debt" logic.
+          if (contribution.newBalance != null) {
+            final remainingMonths = calculateRemainingTenure(
+              balance: contribution.newBalance!,
+              annualInterestRate:
+                  contract.reducingMetadata?.interestRatePercent ?? 0,
+              emi: contract.reducingMetadata?.emiAmount ?? 0,
+            );
+            totalDebt +=
+                remainingMonths * (contract.reducingMetadata?.emiAmount ?? 0);
+          }
           break;
+
         case ContractType.growing:
           growingOutflow += contribution.amount;
-          totalWealth += contract.growingMetadata?.currentValue ?? 0.0;
+          // Show Accumulated Wealth (Start of Month / Current Holdings)
+          // Matches Dashboard "Total Investment" logic.
+          totalWealth += contract.growingMetadata?.totalInvested ?? 0.0;
           break;
+
         case ContractType.fixed:
           fixedOutflow += contribution.amount;
+          if (contract.fixedMetadata?.isLiability == false) {
+            // Asset (e.g. Insurance Policy value or simple Fixed Asset)
+            totalWealth +=
+                contract.fixedMetadata?.coverageAmount ??
+                contract.monthlyAmount;
+          } else {
+            // Liability (e.g. Friendly Loan principal tracked as simple entry)
+            totalDebt +=
+                contract.fixedMetadata?.coverageAmount ??
+                contract.monthlyAmount;
+          }
           break;
       }
 
@@ -215,6 +244,7 @@ class MonthlyExecutionEngine {
     growingOutflow = _round(growingOutflow);
     fixedOutflow = _round(fixedOutflow);
     totalWealth = _round(totalWealth);
+    totalDebt = _round(totalDebt);
 
     final mandatoryOutflow = _round(
       reducingOutflow + growingOutflow + fixedOutflow,
@@ -231,6 +261,7 @@ class MonthlyExecutionEngine {
       growingOutflow: growingOutflow,
       fixedOutflow: fixedOutflow,
       totalWealth: totalWealth,
+      totalDebt: totalDebt,
       contractBreakdown: includeBreakdown ? contributions : null,
       generatedAt: DateTime.now(),
     );
@@ -653,11 +684,15 @@ class MonthlyExecutionEngine {
   Contract _advanceGrowingContract(Contract contract) {
     final metadata = contract.growingMetadata!;
     final newInvested = _round(metadata.totalInvested + contract.monthlyAmount);
+    final newCurrentValue = _round(
+      metadata.currentValue + contract.monthlyAmount,
+    );
     final newPaidMonths = metadata.paidMonths + 1;
 
     return contract.copyWith(
       metadata: metadata.copyWith(
         totalInvested: newInvested,
+        currentValue: newCurrentValue,
         paidMonths: newPaidMonths,
       ),
     );

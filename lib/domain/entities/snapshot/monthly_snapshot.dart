@@ -31,6 +31,7 @@ final class MonthlySnapshot extends Equatable {
     required this.growingOutflow,
     required this.fixedOutflow,
     required this.totalWealth,
+    required this.totalDebt,
     this.contractBreakdown,
     this.generatedAt,
   });
@@ -63,6 +64,9 @@ final class MonthlySnapshot extends Equatable {
   /// Total wealth accumulated (sum of all growing contract values)
   final double totalWealth;
 
+  /// Total debt outstanding (sum of all reducing contract remaining balances)
+  final double totalDebt;
+
   /// Breakdown of each contract's contribution (optional detail)
   final List<ContractContribution>? contractBreakdown;
 
@@ -84,6 +88,9 @@ final class MonthlySnapshot extends Equatable {
 
   /// Whether no active contracts exist
   bool get hasNoContracts => activeContractCount == 0;
+
+  /// Net worth (Total Wealth - Total Debt)
+  double get netWorth => totalWealth - totalDebt;
 
   /// DateTime representation of the month
   DateTime get monthDate => DateTime(year, month);
@@ -128,6 +135,7 @@ final class MonthlySnapshot extends Equatable {
       growingOutflow: 0.0,
       fixedOutflow: 0.0,
       totalWealth: 0.0,
+      totalDebt: 0.0,
       generatedAt: DateTime.now(),
     );
   }
@@ -145,6 +153,7 @@ final class MonthlySnapshot extends Equatable {
     double? growingOutflow,
     double? fixedOutflow,
     double? totalWealth,
+    double? totalDebt,
     List<ContractContribution>? contractBreakdown,
     DateTime? generatedAt,
   }) {
@@ -158,6 +167,7 @@ final class MonthlySnapshot extends Equatable {
       growingOutflow: growingOutflow ?? this.growingOutflow,
       fixedOutflow: fixedOutflow ?? this.fixedOutflow,
       totalWealth: totalWealth ?? this.totalWealth,
+      totalDebt: totalDebt ?? this.totalDebt,
       contractBreakdown: contractBreakdown ?? this.contractBreakdown,
       generatedAt: generatedAt ?? this.generatedAt,
     );
@@ -176,6 +186,7 @@ final class MonthlySnapshot extends Equatable {
       'growingOutflow': growingOutflow,
       'fixedOutflow': fixedOutflow,
       'totalWealth': totalWealth,
+      'totalDebt': totalDebt,
       'contractBreakdown': contractBreakdown?.map((c) => c.toJson()).toList(),
       'generatedAt': generatedAt?.toIso8601String(),
     };
@@ -193,6 +204,7 @@ final class MonthlySnapshot extends Equatable {
       growingOutflow: (json['growingOutflow'] as num).toDouble(),
       fixedOutflow: (json['fixedOutflow'] as num).toDouble(),
       totalWealth: (json['totalWealth'] as num?)?.toDouble() ?? 0.0,
+      totalDebt: (json['totalDebt'] as num?)?.toDouble() ?? 0.0,
       contractBreakdown: (json['contractBreakdown'] as List<dynamic>?)
           ?.map((e) => ContractContribution.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -213,6 +225,7 @@ final class MonthlySnapshot extends Equatable {
     growingOutflow,
     fixedOutflow,
     totalWealth,
+    totalDebt,
     contractBreakdown,
     generatedAt,
   ];
@@ -220,8 +233,7 @@ final class MonthlySnapshot extends Equatable {
   @override
   String toString() {
     return 'MonthlySnapshot($displayMonth: income=$totalIncome, '
-        'outflow=$mandatoryOutflow, free=$freeBalance, '
-        'contracts=$activeContractCount)';
+        'outflow=$mandatoryOutflow, wealth=$totalWealth, debt=$totalDebt)';
   }
 }
 

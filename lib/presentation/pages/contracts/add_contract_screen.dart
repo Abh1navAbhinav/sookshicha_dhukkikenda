@@ -7,6 +7,7 @@ import '../../../domain/entities/contract/metadata/contract_metadata.dart';
 import '../../../domain/usecases/monthly_execution_engine.dart';
 import '../../bloc/add_contract/add_contract_barrel.dart';
 import '../../theme/calm_theme.dart';
+import '../../widgets/calm_components.dart';
 
 class AddContractScreen extends StatefulWidget {
   const AddContractScreen({super.key, this.contract});
@@ -26,6 +27,7 @@ class _AddContractScreenState extends State<AddContractScreen> {
   DateTime _startDate = DateTime.now();
   DateTime? _endDate;
   bool _isLiability = true;
+  bool _showOnDashboard = false;
 
   // Metadata specific fields
   final _lenderController = TextEditingController();
@@ -49,6 +51,7 @@ class _AddContractScreenState extends State<AddContractScreen> {
       _selectedType = c.type;
       _startDate = c.startDate;
       _endDate = c.endDate;
+      _showOnDashboard = c.showOnDashboard;
 
       if (c.type == ContractType.reducing &&
           c.metadata is ReducingContractMetadata) {
@@ -208,6 +211,8 @@ class _AddContractScreenState extends State<AddContractScreen> {
                 ],
                 const SizedBox(height: 24),
                 _buildTypeSpecificFields(),
+                const SizedBox(height: 24),
+                _buildDashboardToggle(),
                 const SizedBox(height: 48),
                 _buildSubmitButton(),
               ],
@@ -569,6 +574,47 @@ class _AddContractScreenState extends State<AddContractScreen> {
     );
   }
 
+  Widget _buildDashboardToggle() {
+    return CalmCard(
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: CalmTheme.primaryLight,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.dashboard_outlined, color: CalmTheme.primary),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Show on Dashboard',
+                  style: CalmTheme.textTheme.titleMedium,
+                ),
+                Text(
+                  'Pin this contract for quick access',
+                  style: CalmTheme.textTheme.bodySmall?.copyWith(
+                    color: CalmTheme.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: _showOnDashboard,
+            onChanged: (v) => setState(() => _showOnDashboard = v),
+            activeThumbColor: CalmTheme.primary,
+          ),
+        ],
+      ),
+    );
+  }
+
   void _submit() {
     if (_validationError != null) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -613,6 +659,7 @@ class _AddContractScreenState extends State<AddContractScreen> {
         monthlyAmount: amount,
         startDate: _startDate,
         endDate: _endDate,
+        showOnDashboard: _showOnDashboard,
         metadata: metadata,
       );
     } else {
@@ -622,6 +669,7 @@ class _AddContractScreenState extends State<AddContractScreen> {
         monthlyAmount: amount,
         startDate: _startDate,
         endDate: _endDate,
+        showOnDashboard: _showOnDashboard,
         metadata: metadata,
       );
     }

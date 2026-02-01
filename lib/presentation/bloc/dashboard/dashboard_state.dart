@@ -31,8 +31,15 @@ final class DashboardLoaded extends DashboardState {
     required this.nextThreeMonths,
     required this.activeContractsCount,
     required this.upcomingContracts,
+    this.pinnedContracts = const [],
+    this.totalInvestment = 0,
+    this.totalPendingDebt = 0,
+    this.financialInsights = const [],
+    this.debtClosureDate,
+    this.projectedIncomeAtDebtClosure,
     this.growingContractsCount = 0,
     this.reducingContractsCount = 0,
+    this.chartProjections = const [],
   });
 
   /// Current month's financial snapshot
@@ -41,11 +48,32 @@ final class DashboardLoaded extends DashboardState {
   /// Preview of next 3 months
   final List<MonthlySnapshot> nextThreeMonths;
 
+  /// Projections for chart (12 months)
+  final List<MonthlySnapshot> chartProjections;
+
   /// Total active contracts count
   final int activeContractsCount;
 
   /// Contracts expiring soon (next 30 days)
   final List<Contract> upcomingContracts;
+
+  /// Contracts pinned by user to dashboard
+  final List<Contract> pinnedContracts;
+
+  /// Total current investment value
+  final double totalInvestment;
+
+  /// Total outstanding debt (remaining principal)
+  final double totalPendingDebt;
+
+  /// List of text-based financial insights
+  final List<String> financialInsights;
+
+  /// Calculated date when all debts will be cleared
+  final DateTime? debtClosureDate;
+
+  /// Projected monthly income when all debts are cleared
+  final double? projectedIncomeAtDebtClosure;
 
   /// Count of growing contracts (investments, savings)
   final int growingContractsCount;
@@ -87,8 +115,15 @@ final class DashboardLoaded extends DashboardState {
   List<Object?> get props => [
     currentSnapshot,
     nextThreeMonths,
+    chartProjections,
     activeContractsCount,
     upcomingContracts,
+    pinnedContracts,
+    totalInvestment,
+    totalPendingDebt,
+    financialInsights,
+    debtClosureDate,
+    projectedIncomeAtDebtClosure,
     growingContractsCount,
     reducingContractsCount,
   ];
