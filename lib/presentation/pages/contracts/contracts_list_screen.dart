@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../../../domain/entities/contract/contract.dart';
 import '../../../domain/entities/contract/contract_type.dart';
@@ -242,36 +243,101 @@ class _ContractItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: isClosed ? 0.6 : 1.0,
-      child: CalmCard(
-        margin: const EdgeInsets.only(bottom: 12),
-        onTap: () => _navigateToDetail(context, contract),
-        child: Row(
-          children: [
-            _TypeIcon(type: contract.type, isClosed: isClosed),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(contract.name, style: CalmTheme.textTheme.titleMedium),
-                  Text(
-                    contract.type.displayName,
-                    style: CalmTheme.textTheme.bodySmall,
-                  ),
-                ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Opacity(
+        opacity: isClosed ? 0.6 : 1.0,
+        child: Slidable(
+          key: ValueKey(contract.id),
+          endActionPane: ActionPane(
+            motion: const ScrollMotion(),
+            extentRatio: 0.5,
+            children: [
+              SlidableAction(
+                onPressed: (_) => _onEdit(context),
+                backgroundColor: CalmTheme.primary,
+                foregroundColor: Colors.white,
+                icon: Icons.edit_rounded,
+                label: 'Edit',
               ),
+              SlidableAction(
+                onPressed: (_) => _onDelete(context),
+                backgroundColor: CalmTheme.danger,
+                foregroundColor: Colors.white,
+                icon: Icons.delete_rounded,
+                label: 'Delete',
+              ),
+            ],
+          ),
+          child: CalmCard(
+            onTap: () => _navigateToDetail(context, contract),
+            child: Row(
+              children: [
+                _TypeIcon(type: contract.type, isClosed: isClosed),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        contract.name,
+                        style: CalmTheme.textTheme.titleMedium,
+                      ),
+                      Text(
+                        contract.type.displayName,
+                        style: CalmTheme.textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                AmountDisplay(
+                  amount: contract.monthlyAmount,
+                  size: AmountSize.compact,
+                  colorBased: !isClosed,
+                ),
+              ],
             ),
-            AmountDisplay(
-              amount: contract.monthlyAmount,
-              size: AmountSize.compact,
-              colorBased: !isClosed,
-            ),
-          ],
+          ),
         ),
       ),
     );
+  }
+
+  void _onEdit(BuildContext parentContext) {
+    Navigator.of(parentContext).push(
+      MaterialPageRoute(
+        builder: (_) => BlocProvider(
+          create: (context) => sl<AddContractCubit>(),
+          child: AddContractScreen(contract: contract),
+        ),
+      ),
+    );
+  }
+
+  void _onDelete(BuildContext parentContext) async {
+    final cubit = parentContext.read<ContractsCubit>();
+
+    final confirmed = await showDialog<bool>(
+      context: parentContext,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Contract'),
+        content: Text('Are you sure you want to delete "${contract.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text('Cancel', style: TextStyle(color: CalmTheme.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text('Delete', style: TextStyle(color: CalmTheme.danger)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      cubit.deleteContract(contract.id);
+    }
   }
 
   void _navigateToDetail(BuildContext context, Contract contract) {

@@ -88,12 +88,9 @@ final class ContractDetailLoaded extends ContractDetailState {
       emi: metadata.emiAmount,
     );
 
-    final totalPaid =
-        (contract.elapsedMonths * metadata.emiAmount) +
-        metadata.prepaymentsMade;
-    final totalPrincipalPaid =
-        metadata.principalAmount - metadata.remainingBalance;
-    final totalInterestPaid = totalPaid - totalPrincipalPaid;
+    final totalPaid = metadata.totalPaid;
+    final totalRemainingBalance = metadata.emiAmount * projectedRemaining;
+    final remainingInterest = totalRemainingBalance - metadata.remainingBalance;
 
     return ReducingDetails(
       principalAmount: metadata.principalAmount,
@@ -102,13 +99,20 @@ final class ContractDetailLoaded extends ContractDetailState {
       tenureMonths: metadata.tenureMonths,
       emiAmount: metadata.emiAmount,
       totalInterest: _calculateTotalInterest(metadata),
+      totalAmountToPay: metadata.emiAmount * metadata.tenureMonths,
       progressPercent: _calculateProgress(metadata),
       totalPaid: totalPaid,
-      totalPrincipalPaid: totalPrincipalPaid,
-      totalInterestPaid: totalInterestPaid,
+      totalPrincipalPaid:
+          metadata.principalAmount -
+          metadata
+              .remainingBalance, // Principal paid is the reduction in balance
+      totalInterestPaid:
+          totalPaid - (metadata.principalAmount - metadata.remainingBalance),
       principalPortion: principalPortion,
       interestPortion: interestPortion,
       projectedRemainingMonths: projectedRemaining,
+      remainingInterest: remainingInterest,
+      totalRemainingBalance: totalRemainingBalance,
     );
   }
 
@@ -207,6 +211,7 @@ class ReducingDetails {
     required this.tenureMonths,
     required this.emiAmount,
     required this.totalInterest,
+    required this.totalAmountToPay,
     required this.progressPercent,
     required this.totalPaid,
     required this.totalPrincipalPaid,
@@ -214,6 +219,8 @@ class ReducingDetails {
     required this.principalPortion,
     required this.interestPortion,
     required this.projectedRemainingMonths,
+    required this.remainingInterest,
+    required this.totalRemainingBalance,
   });
 
   final double principalAmount;
@@ -222,6 +229,7 @@ class ReducingDetails {
   final int tenureMonths;
   final double emiAmount;
   final double totalInterest;
+  final double totalAmountToPay;
   final double progressPercent;
   final double totalPaid;
   final double totalPrincipalPaid;
@@ -229,6 +237,8 @@ class ReducingDetails {
   final double principalPortion;
   final double interestPortion;
   final int projectedRemainingMonths;
+  final double remainingInterest;
+  final double totalRemainingBalance;
 }
 
 /// Details specific to growing (investment) contracts

@@ -90,6 +90,8 @@ class _DashboardContent extends StatelessWidget {
               income: state.income,
               outflow: state.mandatoryOutflow,
               wealth: state.wealth,
+              growingContractsCount: state.growingContractsCount,
+              reducingContractsCount: state.reducingContractsCount,
             ),
           ),
 
@@ -257,11 +259,15 @@ class _IncomeOutflowSummary extends StatelessWidget {
     required this.income,
     required this.outflow,
     required this.wealth,
+    this.growingContractsCount = 0,
+    this.reducingContractsCount = 0,
   });
 
   final double income;
   final double outflow;
   final double wealth;
+  final int growingContractsCount;
+  final int reducingContractsCount;
 
   @override
   Widget build(BuildContext context) {
@@ -277,6 +283,8 @@ class _IncomeOutflowSummary extends StatelessWidget {
                   amount: income,
                   icon: Icons.arrow_downward_rounded,
                   iconColor: CalmTheme.successMuted,
+                  contractCount: growingContractsCount,
+                  contractLabel: 'Growing',
                 ),
               ),
               const SizedBox(width: 16),
@@ -287,6 +295,8 @@ class _IncomeOutflowSummary extends StatelessWidget {
                   icon: Icons.arrow_upward_rounded,
                   iconColor: CalmTheme.dangerMuted,
                   isOutflow: true,
+                  contractCount: reducingContractsCount,
+                  contractLabel: 'Reducing',
                 ),
               ),
             ],
@@ -311,6 +321,8 @@ class _SummaryItem extends StatelessWidget {
     required this.icon,
     required this.iconColor,
     this.isOutflow = false,
+    this.contractCount,
+    this.contractLabel,
   });
 
   final String label;
@@ -318,6 +330,8 @@ class _SummaryItem extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final bool isOutflow;
+  final int? contractCount;
+  final String? contractLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -338,6 +352,15 @@ class _SummaryItem extends StatelessWidget {
             size: AmountSize.small,
             colorBased: false,
           ),
+          if (contractCount != null && contractLabel != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              '$contractCount $contractLabel',
+              style: CalmTheme.textTheme.bodySmall?.copyWith(
+                color: CalmTheme.textMuted,
+              ),
+            ),
+          ],
         ],
       ),
     );

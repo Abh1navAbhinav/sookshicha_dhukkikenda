@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../domain/entities/contract/contract.dart';
+import '../../../domain/entities/contract/contract_type.dart';
 import '../../../domain/entities/snapshot/monthly_snapshot.dart';
 import '../../../domain/repositories/contract_repository.dart';
 import '../../../domain/repositories/monthly_snapshot_repository.dart';
@@ -105,12 +106,22 @@ class DashboardCubit extends Cubit<DashboardState> {
       );
       final upcoming = upcomingResult.fold((_) => <Contract>[], (list) => list);
 
+      // 5. Calculate contract counts by type
+      final growingCount = contractsList
+          .where((c) => c.type == ContractType.growing)
+          .length;
+      final reducingCount = contractsList
+          .where((c) => c.type == ContractType.reducing)
+          .length;
+
       emit(
         DashboardLoaded(
           currentSnapshot: currentSnapshot,
           nextThreeMonths: nextThreeMonths,
           activeContractsCount: contractsList.length,
           upcomingContracts: upcoming,
+          growingContractsCount: growingCount,
+          reducingContractsCount: reducingCount,
         ),
       );
     } catch (e) {

@@ -129,6 +129,17 @@ class ContractsCubit extends Cubit<ContractsState> {
     }
   }
 
+  /// Delete a contract
+  Future<void> deleteContract(String contractId) async {
+    final result = await _contractRepository.deleteContract(contractId);
+    if (result.isLeft()) {
+      result.fold(
+        (failure) => emit(ContractsError(message: failure.message)),
+        (_) => null,
+      );
+    }
+  }
+
   @override
   Future<void> close() {
     _contractsSubscription?.cancel();

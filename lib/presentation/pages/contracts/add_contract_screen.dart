@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../domain/entities/contract/contract.dart';
 import '../../../domain/entities/contract/contract_type.dart';
 import '../../../domain/entities/contract/metadata/contract_metadata.dart';
 import '../../../domain/usecases/monthly_execution_engine.dart';
@@ -8,7 +9,9 @@ import '../../bloc/add_contract/add_contract_barrel.dart';
 import '../../theme/calm_theme.dart';
 
 class AddContractScreen extends StatefulWidget {
-  const AddContractScreen({super.key});
+  const AddContractScreen({super.key, this.contract});
+
+  final Contract? contract;
 
   @override
   State<AddContractScreen> createState() => _AddContractScreenState();
@@ -32,12 +35,29 @@ class _AddContractScreenState extends State<AddContractScreen> {
   final _principalFocus = FocusNode();
   final _tenureFocus = FocusNode();
 
-  bool _isAutoCalculating = false;
+  final bool _isAutoCalculating = false;
   String? _validationError;
 
   @override
   void initState() {
     super.initState();
+    if (widget.contract != null) {
+      final c = widget.contract!;
+      _nameController.text = c.name;
+      _amountController.text = c.monthlyAmount.toString();
+      _selectedType = c.type;
+      _startDate = c.startDate;
+      _endDate = c.endDate;
+
+      if (c.type == ContractType.reducing &&
+          c.metadata is ReducingContractMetadata) {
+        final meta = c.metadata as ReducingContractMetadata;
+        _principalController.text = meta.principalAmount.toString();
+        _tenureController.text = meta.tenureMonths.toString();
+        _lenderController.text = meta.lenderName ?? '';
+      }
+    }
+
     _amountController.addListener(_onFieldChanged);
     _principalController.addListener(_onFieldChanged);
     _tenureController.addListener(_onFieldChanged);
@@ -88,13 +108,23 @@ class _AddContractScreenState extends State<AddContractScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: BackButton(color: CalmTheme.textPrimary),
-        title: Text('New Contract', style: CalmTheme.textTheme.titleLarge),
+        title: Text(
+          widget.contract != null ? 'Edit Contract' : 'New Contract',
+          style: CalmTheme.textTheme.titleLarge,
+        ),
       ),
       body: BlocListener<AddContractCubit, AddContractState>(
         listener: (context, state) {
           if (state is AddContractSuccess) {
+            final isEdit = widget.contract != null;
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Contract created successfully')),
+              SnackBar(
+                content: Text(
+                  isEdit
+                      ? 'Contract updated successfully'
+                      : 'Contract created successfully',
+                ),
+              ),
             );
             Navigator.of(context).pop();
           } else if (state is AddContractError) {
@@ -431,9 +461,14 @@ class _AddContractScreenState extends State<AddContractScreen> {
                       strokeWidth: 2,
                     ),
                   )
-                : const Text(
-                    'Create Contract',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                : Text(
+                    widget.contract != null
+                        ? 'Update Contract'
+                        : 'Create Contract',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
           ),
         );
@@ -476,13 +511,25 @@ class _AddContractScreenState extends State<AddContractScreen> {
       );
     }
 
-    context.read<AddContractCubit>().submitContract(
-      name: _nameController.text,
-      type: _selectedType,
-      monthlyAmount: amount,
-      startDate: _startDate,
-      endDate: _endDate,
-      metadata: metadata,
-    );
+    if (widget.contract != null) {
+      context.read<AddContractCubit>().updateContract(
+        originalContract: widget.contract!,
+        name: _nameController.text,
+        type: _selectedType,
+        monthlyAmount: amount,
+        startDate: _startDate,
+        endDate: _endDate,
+        metadata: metadata,
+      );
+    } else {
+      context.read<AddContractCubit>().submitContract(
+        name: _nameController.text,
+        type: _selectedType,
+        monthlyAmount: amount,
+        startDate: _startDate,
+        endDate: _endDate,
+        metadata: metadata,
+      );
+    }
   }
 }

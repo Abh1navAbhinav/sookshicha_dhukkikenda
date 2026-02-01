@@ -59,4 +59,35 @@ class AddContractCubit extends Cubit<AddContractState> {
       (id) => emit(AddContractSuccess(contractId: id)),
     );
   }
+
+  Future<void> updateContract({
+    required Contract originalContract,
+    required String name,
+    required ContractType type,
+    required double monthlyAmount,
+    required DateTime startDate,
+    DateTime? endDate,
+    String? description,
+    required ContractMetadata metadata,
+  }) async {
+    emit(const AddContractSubmitting());
+
+    final updatedContract = originalContract.copyWith(
+      name: name,
+      type: type,
+      startDate: startDate,
+      endDate: endDate,
+      monthlyAmount: monthlyAmount,
+      metadata: metadata,
+      description: description,
+      updatedAt: DateTime.now(),
+    );
+
+    final result = await _contractRepository.updateContract(updatedContract);
+
+    result.fold(
+      (failure) => emit(AddContractError(message: failure.message)),
+      (_) => emit(AddContractSuccess(contractId: originalContract.id)),
+    );
+  }
 }

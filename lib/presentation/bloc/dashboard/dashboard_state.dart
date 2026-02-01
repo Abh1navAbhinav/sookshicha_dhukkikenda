@@ -31,6 +31,8 @@ final class DashboardLoaded extends DashboardState {
     required this.nextThreeMonths,
     required this.activeContractsCount,
     required this.upcomingContracts,
+    this.growingContractsCount = 0,
+    this.reducingContractsCount = 0,
   });
 
   /// Current month's financial snapshot
@@ -45,16 +47,22 @@ final class DashboardLoaded extends DashboardState {
   /// Contracts expiring soon (next 30 days)
   final List<Contract> upcomingContracts;
 
+  /// Count of growing contracts (investments, savings)
+  final int growingContractsCount;
+
+  /// Count of reducing contracts (loans, EMIs)
+  final int reducingContractsCount;
+
   // ============== Convenience Getters ==============
 
   /// The headline number - what's left after all obligations
   double get freeBalance => currentSnapshot.freeBalance;
 
-  /// Monthly income
-  double get income => currentSnapshot.totalIncome;
+  /// Monthly income from growing contracts (investments, SIPs)
+  double get income => currentSnapshot.growingOutflow;
 
-  /// All mandatory payments
-  double get mandatoryOutflow => currentSnapshot.mandatoryOutflow;
+  /// Outflow from reducing contracts (loans, EMIs)
+  double get mandatoryOutflow => currentSnapshot.reducingOutflow;
 
   /// Total wealth (investment corpus)
   double get wealth => currentSnapshot.totalWealth;
@@ -81,6 +89,8 @@ final class DashboardLoaded extends DashboardState {
     nextThreeMonths,
     activeContractsCount,
     upcomingContracts,
+    growingContractsCount,
+    reducingContractsCount,
   ];
 }
 

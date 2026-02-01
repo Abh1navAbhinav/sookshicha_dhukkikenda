@@ -252,7 +252,22 @@ class _TypeDetails extends StatelessWidget {
           ],
         ),
         children: [
-          _DetailRow('Original Principal', _formatCurrency(d.principalAmount)),
+          _ExpandableDetailRow(
+            label: 'Total Payable',
+            value: _formatCurrency(d.totalAmountToPay),
+            children: [
+              _DetailRow(
+                'Original Principal',
+                _formatCurrency(d.principalAmount),
+                isSubItem: true,
+              ),
+              _DetailRow(
+                'Total Interest',
+                _formatCurrency(d.totalInterest),
+                isSubItem: true,
+              ),
+            ],
+          ),
           _ExpandableDetailRow(
             label: 'Total Paid',
             value: _formatCurrency(d.totalPaid),
@@ -269,7 +284,22 @@ class _TypeDetails extends StatelessWidget {
               ),
             ],
           ),
-          _DetailRow('Remaining Balance', _formatCurrency(d.remainingBalance)),
+          _ExpandableDetailRow(
+            label: 'Remaining Balance',
+            value: _formatCurrency(d.totalRemainingBalance),
+            children: [
+              _DetailRow(
+                'Remaining Principal',
+                _formatCurrency(d.remainingBalance),
+                isSubItem: true,
+              ),
+              _DetailRow(
+                'Remaining Interest',
+                _formatCurrency(d.remainingInterest),
+                isSubItem: true,
+              ),
+            ],
+          ),
           _DetailRow('Interest Rate', '${d.interestRate}%'),
           _DetailRow('Progress', '${d.progressPercent.toStringAsFixed(1)}%'),
         ],
